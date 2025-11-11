@@ -28,7 +28,7 @@ class ASRResponse(BaseModel):
 
 class TTSRequest(BaseModel):
     """Request model for Text-to-Speech"""
-    text: str = Field(..., description="Text to convert to speech")
+    text: str = Field(..., min_length=1, description="Text to convert to speech")
     source_language: LanguageType = Field(
         default=LanguageType.CHINESE,
         description="Source language of the text"

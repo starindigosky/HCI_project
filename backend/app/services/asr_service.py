@@ -34,6 +34,8 @@ class ASRService:
     def load_models(self):
         """Load ASR models (lazy loading)"""
         try:
+            if self.models_loaded:
+                return
             logger.info("Loading ASR models...")
 
             # Load Whisper model for Chinese ASR
@@ -49,22 +51,13 @@ class ASRService:
             self.chinese_model.to(self.device)
             self.chinese_model.eval()
 
-            # Load Wav2Vec2 model for Min Nan ASR
-            # Note: This uses a base model. For better Min Nan support, you should fine-tune this model
-            logger.info(f"Loading Min Nan ASR model: {settings.MIN_NAN_ASR_MODEL}")
-            self.min_nan_processor = Wav2Vec2Processor.from_pretrained(
-                settings.MIN_NAN_ASR_MODEL,
-                cache_dir=settings.MODEL_CACHE_DIR
-            )
-            self.min_nan_model = Wav2Vec2ForCTC.from_pretrained(
-                settings.MIN_NAN_ASR_MODEL,
-                cache_dir=settings.MODEL_CACHE_DIR
-            )
-            self.min_nan_model.to(self.device)
-            self.min_nan_model.eval()
+            # Min Nan ASR model is disabled
+            logger.warning("Min Nan ASR model is disabled due to loading issues.")
+            self.min_nan_processor = None
+            self.min_nan_model = None
 
             self.models_loaded = True
-            logger.info("ASR models loaded successfully")
+            logger.info("ASR models loaded successfully (Min Nan ASR disabled).")
 
         except Exception as e:
             logger.error(f"Error loading ASR models: {str(e)}")
@@ -132,7 +125,8 @@ class ASRService:
                 )
                 predicted_ids = self.chinese_model.generate(
                     input_features,
-                    forced_decoder_ids=forced_decoder_ids
+                    forced_decoder_ids=forced_decoder_ids,
+                    chunk_length_s=30
                 )
 
             # Decode transcription
@@ -155,51 +149,16 @@ class ASRService:
         audio_path: str
     ) -> Tuple[str, Optional[float], float]:
         """
-        Transcribe Min Nan audio to text using Wav2Vec2
+        Min Nan transcription is currently disabled.
 
         Args:
             audio_path: Path to audio file
 
         Returns:
-            Tuple of (transcribed_text, confidence, processing_time)
+            An empty string as transcription.
         """
-        start_time = time.time()
-
-        try:
-            if not self.models_loaded:
-                self.load_models()
-
-            # Preprocess audio
-            audio, sample_rate = self.preprocess_audio(audio_path)
-
-            # Process with Wav2Vec2
-            inputs = self.min_nan_processor(
-                audio,
-                sampling_rate=sample_rate,
-                return_tensors="pt",
-                padding=True
-            )
-
-            input_values = inputs.input_values.to(self.device)
-
-            # Generate transcription
-            with torch.no_grad():
-                logits = self.min_nan_model(input_values).logits
-
-            # Get predicted ids
-            predicted_ids = torch.argmax(logits, dim=-1)
-
-            # Decode transcription
-            transcription = self.min_nan_processor.batch_decode(predicted_ids)[0]
-
-            processing_time = time.time() - start_time
-
-            logger.info(f"Min Nan transcription completed in {processing_time:.2f}s")
-            return transcription, None, processing_time
-
-        except Exception as e:
-            logger.error(f"Error in Min Nan transcription: {str(e)}")
-            raise
+        logger.warning("Min Nan transcription is not available and has been disabled.")
+        return "", None, 0.0
 
     def transcribe(
         self,

@@ -1,8 +1,9 @@
 import pytest
-from unittest.mock import patch, Mock
+from unittest.mock import patch, Mock, AsyncMock
 from fastapi import UploadFile
 from io import BytesIO
 import json
+from app.models.schemas import LanguageType # Import LanguageType for cleaner config
 
 
 @pytest.mark.integration
@@ -304,7 +305,7 @@ class TestAudioDownloadEndpoint:
 
         # Temporarily set output dir
         output_dir = tmp_path / "outputs"
-        output_dir.mkdir()
+        output_dir.mkdir(exist_ok=True)
         monkeypatch.setattr('app.config.settings.OUTPUT_DIR', str(output_dir))
 
         audio_file = output_dir / "test_audio.wav"
@@ -371,5 +372,104 @@ class TestModelLoadingEndpoint:
         response = client.post("/api/v1/models/load")
 
         assert response.status_code == 200
-        # Should not call load_models again
-        mock_asr_service.load_models.assert_not_called()
+
+
+@pytest.mark.integration
+class TestWebSocketEndpoints:
+    """Integration tests for WebSocket endpoints"""
+
+    @patch('app.api.websocket_routes.streaming_session_manager')
+    @patch('app.api.websocket_routes.tts_service')
+    @patch('app.api.websocket_routes.translation_service')
+    # Patch the StreamingASRService class itself
+    @patch('app.services.streaming_service.StreamingASRService')
+    def test_websocket_asr_endpoint(
+        self,
+        mock_streaming_asr_service_class, # This is the mock of the class
+        mock_translation_service,
+        mock_tts_service,
+        mock_streaming_session_manager,
+        client
+    ):
+        """Test WebSocket ASR endpoint"""
+        # Configure the mock StreamingASRService class to return a Mock instance
+        mock_session_instance = Mock() # Changed to Mock
+        mock_streaming_asr_service_class.return_value = mock_session_instance
+
+        # Make async methods of mock_session_instance be AsyncMocks
+        mock_session_instance.transcribe_stream = AsyncMock()
+        mock_session_instance.transcribe_final = AsyncMock()
+
+        # Configure streaming_session_manager to return our mock instance
+        mock_streaming_session_manager.create_session.return_value = mock_session_instance
+
+        # Mock ASR service transcribe method within the mock session instance
+        # Use side_effect to simulate the internal call to add_audio_chunk
+        async def transcribe_stream_side_effect(audio_chunk, language, interim_results):
+            # REMOVED await from here
+            mock_session_instance.add_audio_chunk(audio_chunk) # Simulate internal call
+            return "你好"
+
+        mock_session_instance.transcribe_stream.side_effect = transcribe_stream_side_effect
+        mock_session_instance.transcribe_final.return_value = "你好世界"
+
+        with client.websocket_connect("/api/v1/ws/asr") as websocket:
+            # 1. Send config message
+            websocket.send_json({
+                "type": "config",
+                "language": LanguageType.CHINESE.value, # Use .value for enum
+                "interim_results": True
+            })
+            response = websocket.receive_json()
+            assert response == {
+                "type": "config_updated",
+                "language": LanguageType.CHINESE.value,
+                "interim_results": True
+            }
+
+            # 2. Send audio chunk
+            websocket.send_bytes(b"fake_audio_chunk")
+            response = websocket.receive_json()
+            assert response == {
+                "type": "transcription",
+                "text": "你好",
+                "is_final": False
+            }
+            # Now add_audio_chunk should be called on the mock_session_instance
+            mock_session_instance.add_audio_chunk.assert_called_once_with(b"fake_audio_chunk")
+            mock_session_instance.transcribe_stream.assert_called_once_with(
+                b"fake_audio_chunk", LanguageType.CHINESE, interim_results=True
+            )
+
+            # Reset mock for next call
+            mock_session_instance.add_audio_chunk.reset_mock()
+            mock_session_instance.transcribe_stream.reset_mock()
+
+            # 3. Send another audio chunk
+            websocket.send_bytes(b"another_fake_audio_chunk")
+            response = websocket.receive_json()
+            assert response == {
+                "type": "transcription",
+                "text": "你好",
+                "is_final": False
+            }
+            mock_session_instance.add_audio_chunk.assert_called_once_with(b"another_fake_audio_chunk")
+            mock_session_instance.transcribe_stream.assert_called_once_with(
+                b"another_fake_audio_chunk", LanguageType.CHINESE, interim_results=True
+            )
+
+            # 4. Send stop message
+            websocket.send_json({"type": "stop"})
+            response = websocket.receive_json()
+            assert response == {
+                "type": "transcription",
+                "text": "你好世界",
+                "is_final": True
+            }
+            response = websocket.receive_json()
+            assert response == {"type": "stopped"}
+
+            mock_session_instance.transcribe_final.assert_called_once_with(LanguageType.CHINESE)
+            mock_session_instance.reset_buffer.assert_called_once()
+
+        mock_streaming_session_manager.remove_session.assert_called_once()

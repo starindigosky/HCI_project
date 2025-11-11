@@ -66,6 +66,7 @@ async def transcribe_audio(
 
     Returns transcribed text with metadata
     """
+    file_path = None
     try:
         # Validate file extension
         file_ext = os.path.splitext(audio_file.filename)[1].lower()
@@ -101,10 +102,12 @@ async def transcribe_audio(
             processing_time=processing_time
         )
 
+    except HTTPException as e:
+        raise e
     except Exception as e:
         logger.error(f"Error in transcribe_audio: {str(e)}")
         # Cleanup on error
-        if os.path.exists(file_path):
+        if file_path and os.path.exists(file_path):
             os.remove(file_path)
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -145,6 +148,8 @@ async def synthesize_speech(
             processing_time=processing_time
         )
 
+    except HTTPException as e:
+        raise e
     except Exception as e:
         logger.error(f"Error in synthesize_speech: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -177,6 +182,7 @@ async def voice_to_voice_conversion(
 
     Returns transcribed text and URL to download the converted audio
     """
+    input_path = None
     try:
         # Validate file extension
         file_ext = os.path.splitext(audio_file.filename)[1].lower()
@@ -226,10 +232,12 @@ async def voice_to_voice_conversion(
             processing_time=total_time
         )
 
+    except HTTPException as e:
+        raise e
     except Exception as e:
         logger.error(f"Error in voice_to_voice_conversion: {str(e)}")
         # Cleanup on error
-        if os.path.exists(input_path):
+        if input_path and os.path.exists(input_path):
             os.remove(input_path)
         raise HTTPException(status_code=500, detail=str(e))
 

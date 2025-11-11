@@ -34,47 +34,46 @@ class TestTTSService:
         except Exception as e:
             pytest.skip(f"Model loading failed: {e}")
 
-    @patch('app.services.tts_service.VitsTokenizer')
-    @patch('app.services.tts_service.VitsModel')
-    @patch('app.services.tts_service.wavfile.write')
+    @patch('scipy.io.wavfile.write') # Patch wavfile.write directly
+    @patch.object(TTSService, 'load_models') # Patch the load_models method
     def test_text_to_speech_mock(
         self,
-        mock_wavfile,
-        mock_vits_model,
-        mock_vits_tokenizer,
+        mock_load_models, # This will be the mock for load_models
+        mock_wavfile_write, # This will be the mock for wavfile.write
         sample_chinese_text,
         tmp_path
     ):
         """Test text-to-speech with mocked models"""
-        # Setup mocks
-        mock_tokenizer_instance = Mock()
-        mock_model_instance = Mock()
+        # Instantiate the service normally
+        service = TTSService()
+        
+        # Ensure load_models is not called or does nothing
+        mock_load_models.return_value = None
 
-        mock_vits_tokenizer.from_pretrained.return_value = mock_tokenizer_instance
-        mock_vits_model.from_pretrained.return_value = mock_model_instance
+        # Manually set models_loaded to True and mock tokenizer/model
+        service.models_loaded = True
+        service.tokenizer = Mock()
+        service.model = Mock()
 
-        # Mock tokenizer
+        # Configure tokenizer mock
         mock_inputs = {
             'input_ids': torch.randint(0, 100, (1, 10)),
             'attention_mask': torch.ones(1, 10)
         }
-        mock_tokenizer_instance.return_value = mock_inputs
+        service.tokenizer.return_value = mock_inputs
 
-        # Mock model output
+        # Configure model mock
         mock_output = Mock()
         mock_waveform = torch.randn(1, 16000)  # 1 second of audio
         mock_output.waveform = mock_waveform
-        mock_model_instance.return_value = mock_output
-        mock_model_instance.to.return_value = mock_model_instance
-        mock_model_instance.eval.return_value = None
+        service.model.return_value = mock_output
+        service.model.to.return_value = service.model
+        service.model.eval.return_value = None
 
         # Mock wavfile.write to not actually write
-        mock_wavfile.return_value = None
+        mock_wavfile_write.return_value = None
 
         # Test TTS
-        service = TTSService()
-        service.load_models()
-
         output_path, processing_time = service.text_to_speech(
             sample_chinese_text,
             "test_output.wav"
@@ -83,38 +82,35 @@ class TestTTSService:
         assert isinstance(output_path, str)
         assert "test_output.wav" in output_path
         assert processing_time > 0
-        mock_wavfile.assert_called_once()
+        mock_wavfile_write.assert_called_once() # Corrected line
 
-    @patch('app.services.tts_service.TTSService.text_to_speech')
     def test_translate_and_speak(
         self,
-        mock_tts,
         sample_chinese_text,
         tmp_path
     ):
         """Test translate and speak functionality"""
-        mock_tts.return_value = (str(tmp_path / "output.wav"), 1.5)
-
         service = TTSService()
         service.models_loaded = True
 
-        translated_text, output_path, processing_time = service.translate_and_speak(
-            text=sample_chinese_text,
-            source_language=LanguageType.CHINESE,
-            target_language=LanguageType.MIN_NAN
-        )
+        with patch.object(service, 'text_to_speech', return_value=(str(tmp_path / "output.wav"), 1.5)) as mock_tts:
+            translated_text, output_path, processing_time = service.translate_and_speak(
+                text=sample_chinese_text,
+                source_language=LanguageType.CHINESE,
+                target_language=LanguageType.MIN_NAN
+            )
 
-        assert isinstance(translated_text, str)
-        assert isinstance(output_path, str)
-        assert processing_time > 0
-        mock_tts.assert_called_once()
+            assert isinstance(translated_text, str)
+            assert isinstance(output_path, str)
+            assert processing_time > 0
+            mock_tts.assert_called_once()
 
-    @patch('app.services.tts_service.VitsTokenizer')
-    @patch('app.services.tts_service.VitsModel')
+    @patch('transformers.VitsModel.from_pretrained')
+    @patch('transformers.VitsTokenizer.from_pretrained')
     def test_text_to_speech_custom_filename(
         self,
-        mock_vits_model,
-        mock_vits_tokenizer,
+        mock_vits_tokenizer_from_pretrained,
+        mock_vits_model_from_pretrained,
         sample_chinese_text
     ):
         """Test TTS with custom filename"""
@@ -122,8 +118,8 @@ class TestTTSService:
         mock_tokenizer_instance = Mock()
         mock_model_instance = Mock()
 
-        mock_vits_tokenizer.from_pretrained.return_value = mock_tokenizer_instance
-        mock_vits_model.from_pretrained.return_value = mock_model_instance
+        mock_vits_tokenizer_from_pretrained.return_value = mock_tokenizer_instance
+        mock_vits_model_from_pretrained.return_value = mock_model_instance
 
         mock_inputs = {
             'input_ids': torch.randint(0, 100, (1, 10)),
@@ -141,7 +137,7 @@ class TestTTSService:
 
         custom_filename = "custom_audio.wav"
 
-        with patch('app.services.tts_service.wavfile.write'):
+        with patch('scipy.io.wavfile.write'):
             output_path, _ = service.text_to_speech(
                 sample_chinese_text,
                 custom_filename
@@ -154,42 +150,43 @@ class TestTTSService:
         service = TTSService()
 
         with patch.object(service, 'load_models') as mock_load:
-            with patch('app.services.tts_service.wavfile.write'):
+            with patch('scipy.io.wavfile'):
                 with patch.object(service, 'text_to_speech', wraps=service.text_to_speech):
+                    # Explicitly mock tokenizer and model
+                    service.tokenizer = Mock()
+                    service.model = Mock()
+                    service.model.to.return_value = service.model
+                    service.model.eval.return_value = None
+                    service.tokenizer.return_value = {'input_ids': torch.randint(0, 100, (1, 10))}
+                    service.model.return_value.waveform = torch.randn(1, 16000)
+
                     # This should trigger model loading
                     service.models_loaded = False
-                    try:
-                        service.text_to_speech(sample_chinese_text)
-                    except AttributeError:
-                        # Expected since models aren't actually loaded
-                        pass
+                    service.text_to_speech(sample_chinese_text)
 
                     mock_load.assert_called_once()
 
-    @patch('app.services.tts_service.TTSService.text_to_speech')
     def test_translate_chinese_to_minnan(
         self,
-        mock_tts,
         sample_chinese_text,
         tmp_path
     ):
         """Test Chinese to Min Nan translation workflow"""
-        expected_output = str(tmp_path / "output.wav")
-        mock_tts.return_value = (expected_output, 2.0)
-
         service = TTSService()
         service.models_loaded = True
+        expected_output = str(tmp_path / "output.wav")
 
-        translated_text, output_path, processing_time = service.translate_and_speak(
-            text=sample_chinese_text,
-            source_language=LanguageType.CHINESE,
-            target_language=LanguageType.MIN_NAN,
-            output_filename="minnan_output.wav"
-        )
+        with patch.object(service, 'text_to_speech', return_value=(expected_output, 2.0)) as mock_tts:
+            translated_text, output_path, processing_time = service.translate_and_speak(
+                text=sample_chinese_text,
+                source_language=LanguageType.CHINESE,
+                target_language=LanguageType.MIN_NAN,
+                output_filename="minnan_output.wav"
+            )
 
-        assert isinstance(translated_text, str)
-        assert output_path == expected_output
-        assert processing_time > 0
+            assert isinstance(translated_text, str)
+            assert output_path == expected_output
+            assert processing_time > 0
 
     def test_empty_text_handling(self):
         """Test handling of empty text input"""

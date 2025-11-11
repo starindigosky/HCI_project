@@ -1,4 +1,5 @@
 import torch
+import pypinyin
 from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
 import time
 import logging
@@ -267,11 +268,15 @@ class TranslationService:
 
         # Use neural translation if available and requested
         if use_neural and self.models_loaded:
-            translated_text = self.neural_translate(
-                text,
-                source_language,
-                target_language
-            )
+            try:
+                translated_text = self.neural_translate(
+                    text,
+                    source_language,
+                    target_language
+                )
+            except Exception as e:
+                logger.error(f"Neural translation failed, falling back to dictionary: {e}")
+                translated_text = dict_translation
         else:
             translated_text = dict_translation
 
@@ -282,15 +287,20 @@ class TranslationService:
             for chinese, minnan in self.chinese_to_minnan_dict.items():
                 if chinese in translated_text:
                     translated_text = translated_text.replace(chinese, minnan)
+            
+            # Convert the final Hanzi text to Pinyin for the TTS model
+            final_text = " ".join(pypinyin.lazy_pinyin(translated_text))
+        else:
+            final_text = translated_text
 
         processing_time = time.time() - start_time
 
         logger.info(
             f"Translation completed in {processing_time:.2f}s: "
-            f"'{text}' -> '{translated_text}'"
+            f"'{text}' -> '{final_text}'"
         )
 
-        return translated_text, processing_time
+        return final_text, processing_time
 
 
 # Global translation service instance
