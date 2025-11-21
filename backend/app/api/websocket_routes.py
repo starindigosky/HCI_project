@@ -1,5 +1,6 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.websockets import WebSocketState
+from websockets.exceptions import ConnectionClosedOK, ConnectionClosedError
 import json
 import logging
 import uuid
@@ -20,148 +21,95 @@ router = APIRouter()
 async def websocket_asr_endpoint(websocket: WebSocket):
     """
     WebSocket endpoint for real-time ASR (Automatic Speech Recognition)
-
-    The client sends audio chunks and receives transcription results in real-time.
-
-    Message format from client:
-    {
-        "type": "config",
-        "language": "chinese" | "min_nan",
-        "interim_results": true | false
-    }
-    OR
-    {
-        "type": "audio",
-        "data": <base64 encoded audio bytes>
-    }
-    OR
-    {
-        "type": "stop"
-    }
-
-    Message format to client:
-    {
-        "type": "transcription",
-        "text": "transcribed text",
-        "is_final": true | false
-    }
-    OR
-    {
-        "type": "error",
-        "message": "error message"
-    }
     """
     await websocket.accept()
-
-    # Create session
     session_id = str(uuid.uuid4())
-    session = streaming_session_manager.create_session(session_id)
-
-    # Session configuration
-    config = {
-        "language": LanguageType.CHINESE,
-        "interim_results": False
-    }
-
+    session = None
+    
     logger.info(f"WebSocket ASR connection established: session={session_id}")
 
     try:
+        # Step 1: Wait for the mandatory 'config' message
+        first_message = await websocket.receive()
+        
+        if "text" in first_message:
+            try:
+                config_data = json.loads(first_message["text"])
+                if config_data.get("type") != "config":
+                    raise ValueError("First message must be of type 'config'.")
+
+                # Configure and create the session
+                lang = config_data.get("language", "chinese")
+                sample_rate = config_data.get("sample_rate", 16000)
+                interim_results = config_data.get("interim_results", False)
+
+                session = streaming_session_manager.create_session(session_id, sample_rate=sample_rate)
+                
+                config = {
+                    "language": LanguageType(lang),
+                    "interim_results": interim_results,
+                    "sample_rate": sample_rate
+                }
+                
+                logger.info(f"Session {session_id} configured with language: {lang}, sample_rate: {sample_rate}")
+                await websocket.send_json({"type": "config_updated", **config_data})
+
+            except (json.JSONDecodeError, ValueError) as e:
+                error_message = f"Invalid or missing config message: {e}"
+                logger.error(error_message)
+                await websocket.send_json({"type": "error", "message": error_message})
+                await websocket.close()
+                return
+        else: # This means we received 'bytes' first, which is an error
+            error_message = "Connection must start with a 'config' text message, but received binary data first."
+            logger.error(error_message)
+            await websocket.send_json({"type": "error", "message": error_message})
+            await websocket.close()
+            return
+
+        # Step 2: Process subsequent messages (audio, stop)
         while True:
-            # Receive message
             data = await websocket.receive()
 
             if "text" in data:
-                # Handle JSON messages
-                try:
-                    message = json.loads(data["text"])
-                    message_type = message.get("type")
+                message = json.loads(data["text"])
+                message_type = message.get("type")
 
-                    if message_type == "config":
-                        # Update configuration
-                        lang = message.get("language", "chinese")
-                        try:
-                            config["language"] = LanguageType(lang)
-                            config["interim_results"] = message.get("interim_results", False)
-
-                            await websocket.send_json({
-                                "type": "config_updated",
-                                "language": lang,
-                                "interim_results": config["interim_results"]
-                            })
-                        except ValueError:
-                            await websocket.send_json({
-                                "type": "error",
-                                "message": f"Invalid language: {lang}. Must be 'chinese' or 'min_nan'"
-                            })
-
-                    elif message_type == "stop":
-                        # Get final transcription
-                        final_text = await session.transcribe_final(config["language"])
-
-                        if final_text:
-                            await websocket.send_json({
-                                "type": "transcription",
-                                "text": final_text,
-                                "is_final": True
-                            })
-
-                        # Reset buffer for next session
-                        session.reset_buffer()
-
+                if message_type == "stop":
+                    final_text = await session.transcribe_final(config["language"])
+                    if final_text:
                         await websocket.send_json({
-                            "type": "stopped"
+                            "type": "transcription", "text": final_text, "is_final": True
                         })
-
-                    else:
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": f"Unknown message type: {message_type}"
-                        })
-
-                except json.JSONDecodeError:
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": "Invalid JSON"
-                    })
+                    session.reset_buffer()
+                    await websocket.send_json({"type": "stopped"})
+                
+                elif message_type == "config":
+                    logger.warning(f"Received unexpected 'config' message during stream for session {session_id}")
 
             elif "bytes" in data:
-                # Handle audio bytes
-                try:
-                    audio_chunk = data["bytes"]
-
-                    # Transcribe stream
-                    text = await session.transcribe_stream(
-                        audio_chunk,
-                        config["language"],
-                        interim_results=config["interim_results"]
-                    )
-
-                    if text:
-                        await websocket.send_json({
-                            "type": "transcription",
-                            "text": text,
-                            "is_final": not config["interim_results"]
-                        })
-
-                except Exception as e:
-                    logger.error(f"Error processing audio: {str(e)}")
+                audio_chunk = data["bytes"]
+                text = await session.transcribe_stream(
+                    audio_chunk, config["language"], interim_results=config["interim_results"]
+                )
+                if text:
                     await websocket.send_json({
-                        "type": "error",
-                        "message": str(e)
+                        "type": "transcription", "text": text, "is_final": not config["interim_results"]
                     })
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket ASR disconnected: session={session_id}")
+    except ConnectionClosedOK:
+        logger.info(f"Client closed connection gracefully: session={session_id}")
+    except ConnectionClosedError as e:
+        logger.warning(f"Client connection closed with error: {e} for session={session_id}")
     except Exception as e:
-        logger.error(f"WebSocket ASR error: {str(e)}")
+        logger.error(f"WebSocket ASR error for session {session_id}: {e}", exc_info=True)
         if websocket.client_state == WebSocketState.CONNECTED:
-            await websocket.send_json({
-                "type": "error",
-                "message": str(e)
-            })
+            await websocket.send_json({"type": "error", "message": str(e)})
     finally:
-        # Cleanup session
-        streaming_session_manager.remove_session(session_id)
+        if session_id in streaming_session_manager.sessions:
+            streaming_session_manager.remove_session(session_id)
         if websocket.client_state == WebSocketState.CONNECTED:
             await websocket.close()
 
@@ -242,16 +190,24 @@ async def websocket_voice_chat_endpoint(websocket: WebSocket):
                             config["source_language"] = LanguageType(src_lang)
                             config["target_language"] = LanguageType(tgt_lang)
 
-                            await websocket.send_json({
-                                "type": "config_updated",
-                                "source_language": src_lang,
-                                "target_language": tgt_lang
-                            })
+                            try:
+                                await websocket.send_json({
+                                    "type": "config_updated",
+                                    "source_language": src_lang,
+                                    "target_language": tgt_lang
+                                })
+                            except (ConnectionClosedOK, ConnectionClosedError):
+                                logger.warning(f"Could not send config update to disconnected client: session={session_id}")
+                                break
                         except ValueError as e:
-                            await websocket.send_json({
-                                "type": "error",
-                                "message": f"Invalid language. Must be 'chinese' or 'min_nan'"
-                            })
+                            try:
+                                await websocket.send_json({
+                                    "type": "error",
+                                    "message": f"Invalid language. Must be 'chinese' or 'min_nan'"
+                                })
+                            except (ConnectionClosedOK, ConnectionClosedError):
+                                logger.warning(f"Could not send error to disconnected client: session={session_id}")
+                                break
 
                     elif message_type == "stop":
                         # Process final audio
@@ -261,10 +217,14 @@ async def websocket_voice_chat_endpoint(websocket: WebSocket):
                         )
 
                         if transcribed_text:
-                            await websocket.send_json({
-                                "type": "transcription",
-                                "text": transcribed_text
-                            })
+                            try:
+                                await websocket.send_json({
+                                    "type": "transcription",
+                                    "text": transcribed_text
+                                })
+                            except (ConnectionClosedOK, ConnectionClosedError):
+                                logger.warning(f"Could not send transcription to disconnected client: session={session_id}")
+                                break
 
                             # 2. Translate (run in thread pool to avoid blocking)
                             translated_text, translation_time = await run_in_thread(
@@ -274,10 +234,14 @@ async def websocket_voice_chat_endpoint(websocket: WebSocket):
                                 config["target_language"]
                             )
 
-                            await websocket.send_json({
-                                "type": "translation",
-                                "text": translated_text
-                            })
+                            try:
+                                await websocket.send_json({
+                                    "type": "translation",
+                                    "text": translated_text
+                                })
+                            except (ConnectionClosedOK, ConnectionClosedError):
+                                logger.warning(f"Could not send translation to disconnected client: session={session_id}")
+                                break
 
                             # 3. Generate speech (run in thread pool to avoid blocking)
                             output_path, tts_time = await run_in_thread(
@@ -289,24 +253,36 @@ async def websocket_voice_chat_endpoint(websocket: WebSocket):
                             import os
                             filename = os.path.basename(output_path)
 
-                            await websocket.send_json({
-                                "type": "audio_ready",
-                                "audio_url": f"/api/v1/audio/{filename}",
-                                "text": translated_text
-                            })
+                            try:
+                                await websocket.send_json({
+                                    "type": "audio_ready",
+                                    "audio_url": f"/api/v1/audio/{filename}",
+                                    "text": translated_text
+                                })
+                            except (ConnectionClosedOK, ConnectionClosedError):
+                                logger.warning(f"Could not send audio ready message to disconnected client: session={session_id}")
+                                break
 
                         # Reset buffer
                         session.reset_buffer()
 
-                        await websocket.send_json({
-                            "type": "stopped"
-                        })
+                        try:
+                            await websocket.send_json({
+                                "type": "stopped"
+                            })
+                        except (ConnectionClosedOK, ConnectionClosedError):
+                            logger.warning(f"Could not send stop confirmation to disconnected client: session={session_id}")
+                            break
 
                 except json.JSONDecodeError:
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": "Invalid JSON"
-                    })
+                    try:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": "Invalid JSON"
+                        })
+                    except (ConnectionClosedOK, ConnectionClosedError):
+                        logger.warning(f"Could not send error to disconnected client: session={session_id}")
+                        break
 
             elif "bytes" in data:
                 # Just buffer audio for now
@@ -314,17 +290,25 @@ async def websocket_voice_chat_endpoint(websocket: WebSocket):
                     audio_chunk = data["bytes"]
                     session.add_audio_chunk(audio_chunk)
 
-                    await websocket.send_json({
-                        "type": "audio_received",
-                        "size": len(audio_chunk)
-                    })
+                    try:
+                        await websocket.send_json({
+                            "type": "audio_received",
+                            "size": len(audio_chunk)
+                        })
+                    except (ConnectionClosedOK, ConnectionClosedError):
+                        logger.warning(f"Could not send audio received confirmation to disconnected client: session={session_id}")
+                        break
 
                 except Exception as e:
                     logger.error(f"Error processing audio: {str(e)}")
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": str(e)
-                    })
+                    try:
+                        await websocket.send_json({
+                            "type": "error",
+                            "message": str(e)
+                        })
+                    except (ConnectionClosedOK, ConnectionClosedError):
+                        logger.warning(f"Could not send error to disconnected client: session={session_id}")
+                        break
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket Voice Chat disconnected: session={session_id}")

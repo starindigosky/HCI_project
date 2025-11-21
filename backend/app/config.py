@@ -3,7 +3,6 @@ from pydantic_settings import BaseSettings
 from typing import Optional
 import os
 
-
 class Settings(BaseSettings):
     """Application settings and configuration"""
 
@@ -16,10 +15,19 @@ class Settings(BaseSettings):
     # CORS Settings
     BACKEND_CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:8000,http://localhost:8080"
 
-    # Model Settings
-    CHINESE_ASR_MODEL: str = "openai/whisper-large-v3"  # For Chinese ASR
-    MIN_NAN_ASR_MODEL: str = "jonatasgrosman/wav2vec2-large-xlsr-53-chinese-zh-cn"  # Fine-tuned model for Chinese, as a proxy for Min Nan
-    MIN_NAN_TTS_MODEL: str = "facebook/mms-tts-nan"  # Min Nan TTS model
+    # --- Model Settings (Optimized for 4GB VRAM) ---
+    
+    # 使用 small 模型，平衡速度與準確度 (約 1GB VRAM)
+    CHINESE_ASR_MODEL: str = "openai/whisper-small" 
+    
+    # 閩南語 ASR 模型 (使用 Wav2Vec2 XLSR-53)
+    MIN_NAN_ASR_MODEL: str = "voidful/wav2vec2-large-xlsr-53-tw-gpt" 
+    
+    # 閩南語 TTS 模型
+    MIN_NAN_TTS_MODEL: str = "facebook/mms-tts-nan" 
+    
+    # [新增] 中文 TTS 模型 (MMS 系列)
+    CHINESE_TTS_MODEL: str = "suno/bark-small"
 
     # File Upload Settings
     UPLOAD_DIR: str = "uploads"
@@ -30,8 +38,8 @@ class Settings(BaseSettings):
     # Audio Processing Settings
     SAMPLE_RATE: int = 16000  # Standard sample rate for ASR models
 
-    # Device Settings (CPU/CUDA)
-    DEVICE: str = "cuda" if torch.cuda.is_available() else "cpu"
+    # Device Settings
+    DEVICE: str = os.getenv("APP_DEVICE", "cuda" if torch.cuda.is_available() else "cpu")
 
     # Cache Settings
     MODEL_CACHE_DIR: str = "./model_cache"
@@ -39,7 +47,6 @@ class Settings(BaseSettings):
     class Config:
         case_sensitive = True
         env_file = ".env"
-
 
 settings = Settings()
 

@@ -1,12 +1,20 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from app.services import asr_service
+from pathlib import Path
 import logging
 import sys
+import os
+import glob
 
 from .config import settings
 from .api.routes import router
 from .api.websocket_routes import router as ws_router
+
+# Base directory of the app
+BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Configure logging
 logging.basicConfig(
@@ -28,6 +36,9 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+# Mount static files for examples
+app.mount("/examples", StaticFiles(directory=BASE_DIR / "examples"), name="examples")
+app.mount("/output", StaticFiles(directory=settings.OUTPUT_DIR), name="output")
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -54,6 +65,16 @@ async def global_exception_handler(request, exc):
 # Startup event
 @app.on_event("startup")
 async def startup_event():
+    logger.info("Cleaning up old TTS files...")
+    try:
+        # 找出 output 資料夾中所有的 .wav 檔案
+        files_to_delete = glob.glob(os.path.join(settings.OUTPUT_DIR, "*.wav"))
+        for f_path in files_to_delete:
+            os.remove(f_path)
+        logger.info(f"Removed {len(files_to_delete)} old TTS files.")
+    except Exception as e:
+        logger.warning(f"Error cleaning up TTS files: {str(e)}")
+    # --------------------
     logger.info("=" * 80)
     logger.info(f"Starting {settings.PROJECT_NAME} v{settings.VERSION}")
     logger.info("=" * 80)

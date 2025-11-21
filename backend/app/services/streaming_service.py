@@ -1,10 +1,14 @@
 import torch
 import numpy as np
+import os
 import io
 import logging
 from typing import AsyncGenerator, Optional
 from collections import deque
 import asyncio
+
+from .translation_service import translation_service
+from .tts_service import tts_service
 
 from ..models.schemas import LanguageType
 from .asr_service import asr_service
@@ -35,7 +39,7 @@ class StreamingASRService:
         self.audio_buffer = deque(maxlen=100)  # Max 100 chunks (~100 seconds)
 
         # Minimum audio length for transcription (in seconds)
-        self.min_audio_duration = 0.5
+        self.min_audio_duration = 4.0
 
         logger.info(
             f"Streaming ASR Service initialized: "
@@ -104,26 +108,17 @@ class StreamingASRService:
 
         # Check if we have enough audio
         duration = len(audio) / self.sample_rate
+
         if duration < self.min_audio_duration:
             logger.debug(f"Not enough audio yet: {duration:.2f}s")
             return None
 
-        import tempfile
-        import soundfile as sf
-        import os
-
-        tmp_path = None
         try:
-            # Save to temporary file for transcription
-            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_file:
-                tmp_path = tmp_file.name
-                # Run file I/O in thread pool to avoid blocking
-                await run_in_thread(sf.write, tmp_path, audio, self.sample_rate)
-
             # Transcribe using existing ASR service (run in thread pool)
             text, confidence, processing_time = await run_in_thread(
-                asr_service.transcribe,
-                tmp_path,
+                asr_service.transcribe_array,
+                audio,
+                self.sample_rate,
                 language
             )
 
@@ -132,18 +127,42 @@ class StreamingASRService:
                 f"(duration: {duration:.2f}s, time: {processing_time:.2f}s)"
             )
 
-            return text
+            # 1. 翻譯: 中文文字 -> 閩南語文字
+            translated_text, trans_time = await run_in_thread(
+                translation_service.translate,
+                text,
+                LanguageType.CHINESE,
+                LanguageType.MIN_NAN
+             )
+            logger.info(f"Translated to Min Nan: '{translated_text}' in {trans_time:.2f}s")
+            
+            # 2. 語音合成: 閩南語文字 -> 閩南語語音
+            #    tts_service 會回傳檔案路徑 (e.g., "output/tts_xyz.wav")
+            audio_path, tts_time = await run_in_thread(
+                tts_service.text_to_speech,
+                translated_text
+            )
+            logger.info(f"Generated Min Nan audio: '{audio_path}' in {tts_time:.2f}s")
+            
+            
+            self.reset_buffer()
+            
+            # 4. 回傳音檔的路徑 (URL)
+            #    我們需要將 "output\tts_xyz.wav" 轉成 "output/tts_xyz.wav"
+            filename = os.path.basename(audio_path)
+
+            # 我們的主程式 app/main.py 掛載在 "/output"
+            # 所以 URL 必須是 "output/tts_123.wav"
+            audio_url = f"output/{filename}"
+            return {
+                'translated_text': translated_text,
+                'audio_url': audio_url
+            }
 
         except Exception as e:
             logger.error(f"Error in streaming transcription: {str(e)}")
+            self.reset_buffer()
             raise
-        finally:
-            # Ensure temp file is always cleaned up
-            if tmp_path and os.path.exists(tmp_path):
-                try:
-                    os.remove(tmp_path)
-                except Exception as cleanup_error:
-                    logger.warning(f"Failed to cleanup temp file {tmp_path}: {cleanup_error}")
 
     async def transcribe_final(
         self,
@@ -163,21 +182,12 @@ class StreamingASRService:
         if len(audio) == 0:
             return None
 
-        import tempfile
-        import soundfile as sf
-        import os
-
-        tmp_path = None
         try:
-            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp_file:
-                tmp_path = tmp_file.name
-                # Run file I/O in thread pool to avoid blocking
-                await run_in_thread(sf.write, tmp_path, audio, self.sample_rate)
-
             # Transcribe using existing ASR service (run in thread pool)
             text, confidence, processing_time = await run_in_thread(
-                asr_service.transcribe,
-                tmp_path,
+                asr_service.transcribe_array,
+                audio,
+                self.sample_rate,
                 language
             )
 
@@ -188,13 +198,6 @@ class StreamingASRService:
         except Exception as e:
             logger.error(f"Error in final transcription: {str(e)}")
             raise
-        finally:
-            # Ensure temp file is always cleaned up
-            if tmp_path and os.path.exists(tmp_path):
-                try:
-                    os.remove(tmp_path)
-                except Exception as cleanup_error:
-                    logger.warning(f"Failed to cleanup temp file {tmp_path}: {cleanup_error}")
 
 
 class StreamingSessionManager:
@@ -204,11 +207,11 @@ class StreamingSessionManager:
         self.sessions = {}
         logger.info("Streaming Session Manager initialized")
 
-    def create_session(self, session_id: str) -> StreamingASRService:
+    def create_session(self, session_id: str, sample_rate: int = 16000) -> StreamingASRService:
         """Create a new streaming session"""
-        session = StreamingASRService()
+        session = StreamingASRService(sample_rate=sample_rate)
         self.sessions[session_id] = session
-        logger.info(f"Created streaming session: {session_id}")
+        logger.info(f"Created streaming session: {session_id} with sample rate: {sample_rate}")
         return session
 
     def get_session(self, session_id: str) -> Optional[StreamingASRService]:

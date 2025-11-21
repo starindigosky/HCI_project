@@ -308,34 +308,52 @@
             transcriptionBox.scrollTop = transcriptionBox.scrollHeight;
         }
 
+        let audioWorkletNode = null;
+
         async function startRecording() {
             try {
+                if (!window.AudioContext || !window.AudioWorkletNode) {
+                    alert('Your browser does not support the required Audio API. Please use a modern browser like Chrome or Firefox.');
+                    return;
+                }
+
                 // Connect WebSocket
                 websocket = new WebSocket(WS_URL);
 
                 websocket.onopen = async () => {
                     updateStatus('Connected', 'connected');
 
-                    // Send configuration
-                    websocket.send(JSON.stringify({
-                        type: 'config',
-                        language: languageSelect.value,
-                        interim_results: interimResultsCheckbox.checked
-                    }));
-
                     // Start audio capture
                     audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-                    // Create audio context
-                    audioContext = new AudioContext({ sampleRate: 16000 });
+                    // Create audio context using the browser's native sample rate
+                    audioContext = new AudioContext();
+                    
+                    // Send configuration with the actual sample rate
+                    websocket.send(JSON.stringify({
+                        type: 'config',
+                        language: languageSelect.value,
+                        interim_results: interimResultsCheckbox.checked,
+                        sample_rate: audioContext.sampleRate
+                    }));
+
+                    // Add the audio processor module
+                    try {
+                        await audioContext.audioWorklet.addModule('audio-processor.js');
+                    } catch (e) {
+                        console.error('Error loading audio worklet module:', e);
+                        alert('Failed to load audio processor. Please check the console for details.');
+                        stopRecording();
+                        return;
+                    }
+
                     const source = audioContext.createMediaStreamSource(audioStream);
+                    audioWorkletNode = new AudioWorkletNode(audioContext, 'audio-processor');
 
-                    // Create script processor for audio chunks
-                    const processor = audioContext.createScriptProcessor(4096, 1, 1);
-
-                    processor.onaudioprocess = (e) => {
+                    // Handle messages from the audio worklet
+                    audioWorkletNode.port.onmessage = (event) => {
                         if (websocket && websocket.readyState === WebSocket.OPEN) {
-                            const audioData = e.inputBuffer.getChannelData(0);
+                            const audioData = event.data;
                             // Convert to Int16Array
                             const int16Data = new Int16Array(audioData.length);
                             for (let i = 0; i < audioData.length; i++) {
@@ -345,8 +363,8 @@
                         }
                     };
 
-                    source.connect(processor);
-                    processor.connect(audioContext.destination);
+                    source.connect(audioWorkletNode);
+                    audioWorkletNode.connect(audioContext.destination);
 
                     updateStatus('🔴 Recording...', 'recording');
                     startBtn.disabled = true;
@@ -357,7 +375,19 @@
                     const message = JSON.parse(event.data);
 
                     if (message.type === 'transcription') {
-                        addTranscription(message.text, message.is_final);
+                        const data = message.text; 
+
+                        // 1. 在介面上顯示「翻譯後的文字」
+                        addTranscription(data.translated_text, true); 
+
+                        // 2. 建立並播放「翻譯後的音訊」
+                        const audioUrl = `http://localhost:8000/${data.audio_url}`;
+                         // ---------------------------------
+
+                        // 2. 建立並播放「翻譯後的音訊」
+                        const audio = new Audio(audioUrl);
+                        audio.play();
+                        
                     } else if (message.type === 'error') {
                         console.error('WebSocket error:', message.message);
                         alert('Error: ' + message.message);
@@ -394,6 +424,12 @@
             if (audioStream) {
                 audioStream.getTracks().forEach(track => track.stop());
                 audioStream = null;
+            }
+
+            // Disconnect and nullify the audio worklet node
+            if (audioWorkletNode) {
+                audioWorkletNode.disconnect();
+                audioWorkletNode = null;
             }
 
             // Close audio context
