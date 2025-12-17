@@ -251,6 +251,33 @@ async def get_audio_file(filename: str):
     return FileResponse(path=file_path, media_type="audio/wav", filename=filename)
 
 
+@router.delete("/audio/{filename}")
+async def delete_audio_file(filename: str):
+    """
+    Delete an audio file
+    """
+    try:
+        # Validate filename to prevent directory traversal
+        if ".." in filename or "/" in filename:
+            raise HTTPException(status_code=400, detail="Invalid filename")
+
+        file_path = os.path.join(settings.OUTPUT_DIR, filename)
+
+        if not os.path.exists(file_path):
+            raise HTTPException(status_code=404, detail="File not found")
+
+        os.remove(file_path)
+        logger.info(f"Deleted audio file: {file_path}")
+
+        return {"status": "success", "message": f"Deleted {filename}"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting file {filename}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/tts/history")
 async def get_audio_history():
     """

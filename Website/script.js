@@ -126,9 +126,34 @@ function renderHistory(files) {
                     <span>${(file.size / 1024).toFixed(1)} KB</span>
                 </div>
                 <audio controls preload="metadata" class="history-audio" src="${audioUrl}" type="audio/wav"></audio>
+                <button class="delete-btn" onclick="deleteAudio('${file.filename.replace(/'/g, "\\'")}')" title="Delete">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+                    </svg>
+                </button>
             </div>
         `;
     }).join('');
+}
+
+async function deleteAudio(filename) {
+    if (!confirm('Start to delete this audio?')) return;
+
+    try {
+        const response = await fetch(`http://localhost:8000/api/v1/audio/${filename}`, {
+            method: 'DELETE'
+        });
+
+        if (response.ok) {
+            fetchHistory(); // Refresh list
+        } else {
+            const data = await response.json();
+            alert('Delete failed: ' + (data.detail || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error deleting audio:', error);
+        alert('Error deleting audio');
+    }
 }
 
 // Load history on startup
@@ -156,7 +181,7 @@ async function getSynthesizedAudio(text) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 text: text,
-                source_language: languageSelect.value, // Use the same language as ASR
+                source_language: languageSelect ? languageSelect.value : 'chinese', // Use the same language as ASR
                 target_language: 'min_nan'
             }),
         });
@@ -172,6 +197,25 @@ async function getSynthesizedAudio(text) {
     }
 }
 
+// Speaker Management
+let currentSpeaker = 'A';
+
+function setSpeaker(speaker) {
+    currentSpeaker = speaker;
+
+    // Update buttons
+    const btnA = document.getElementById('speakerABtn');
+    const btnB = document.getElementById('speakerBBtn');
+
+    if (speaker === 'A') {
+        btnA.classList.add('active');
+        btnB.classList.remove('active');
+    } else {
+        btnA.classList.remove('active');
+        btnB.classList.add('active');
+    }
+}
+
 async function addTranscription(text, isFinal = true, details = {}) {
     // Remove empty state if present
     const emptyState = transcriptionBox.querySelector('.empty-state');
@@ -182,6 +226,7 @@ async function addTranscription(text, isFinal = true, details = {}) {
     const translatedText = details.translated_text || text; // Target (e.g. Min Nan) or same
     const confidence = details.confidence || 'low';
     const method = details.method || 'fallback';
+    const speaker = details.speaker || currentSpeaker; // Use passed speaker or global state
 
     // UI Class for confidence coloring
     // High confidence (dict match) -> Green-ish text/border
@@ -194,7 +239,10 @@ async function addTranscription(text, isFinal = true, details = {}) {
         item = transcriptionBox.querySelector('.transcription-item:last-child.interim');
         if (!item) {
             item = document.createElement('div');
-            item.className = 'transcription-item interim';
+            // Store speaker in dataset for persistence
+            item.dataset.speaker = speaker;
+            // Add speaker class
+            item.className = `transcription-item interim speaker-${speaker}`;
 
             const contentDiv = document.createElement('div');
             contentDiv.className = 'transcription-content';
@@ -211,9 +259,14 @@ async function addTranscription(text, isFinal = true, details = {}) {
         item = transcriptionBox.querySelector('.transcription-item:last-child.interim');
         if (item) {
             item.classList.remove('interim');
+            // Use EXISTING speaker from dataset to prevent switching active item
+            const lockedSpeaker = item.dataset.speaker || speaker;
+            item.className = `transcription-item speaker-${lockedSpeaker}`;
         } else {
             item = document.createElement('div');
-            item.className = 'transcription-item';
+            // Store speaker
+            item.dataset.speaker = speaker;
+            item.className = `transcription-item speaker-${speaker}`;
 
             const contentDiv = document.createElement('div');
             contentDiv.className = 'transcription-content';
@@ -227,10 +280,16 @@ async function addTranscription(text, isFinal = true, details = {}) {
         }
     }
 
+    // Retrieve speaker for rendering label
+    const displaySpeaker = item.dataset.speaker || speaker;
+
     // Render Dual Text Layout
     const contentDiv = item.querySelector('.transcription-content');
     contentDiv.innerHTML = `
-        <div class="source-text" style="font-size: 0.85em; color: #666; margin-bottom: 4px;">${originalText}</div>
+        <div class="speaker-label" style="font-size: 0.75em; color: #888; margin-bottom: 2px;">
+            ${displaySpeaker === 'A' ? 'Speaker A' : 'Speaker B'}
+        </div>
+        <div class="source-text" style="font-size: 0.85em; color: #ccc; margin-bottom: 4px;">${originalText}</div>
         <div class="target-text ${confidenceClass}" style="font-size: 1.1em; font-weight: bold; color: ${confidence === 'high' ? '#2e7d32' : '#d84315'};">
             ${translatedText}
         </div>
@@ -242,6 +301,14 @@ async function addTranscription(text, isFinal = true, details = {}) {
 
     // If it's a final transcription, fetch and embed the audio
     if (isFinal) {
+        // [New Feature] Auto-fill TTS text box with ASR result
+        if (ttsText) {
+            // Append with newline if not empty
+            ttsText.value += (ttsText.value ? '\n' : '') + originalText;
+            // Scroll to bottom of textarea
+            ttsText.scrollTop = ttsText.scrollHeight;
+        }
+
         const audioContainer = document.createElement('div');
         audioContainer.className = 'transcription-audio-container';
         audioContainer.textContent = 'Synthesizing audio...';
@@ -278,10 +345,13 @@ async function startRecording() {
             updateStatus('Connected', 'connected');
 
             // Send configuration
+            const language = languageSelect ? languageSelect.value : 'chinese';
+            const interimResults = interimResultsCheckbox ? interimResultsCheckbox.checked : false;
+
             websocket.send(JSON.stringify({
                 type: 'config',
-                language: languageSelect.value,
-                interim_results: interimResultsCheckbox.checked
+                language: language,
+                interim_results: interimResults
             }));
 
             // Start audio capture
@@ -430,7 +500,7 @@ async function synthesizeSpeech(e) {
             },
             body: JSON.stringify({
                 text: text,
-                source_language: ttsSourceLang.value,
+                source_language: ttsSourceLang ? ttsSourceLang.value : 'chinese',
                 target_language: 'min_nan' // TTS output is always Min Nan
             }),
         });
@@ -471,7 +541,26 @@ startBtn.addEventListener('click', startRecording);
 stopBtn.addEventListener('click', stopRecording);
 ttsBtn.addEventListener('click', synthesizeSpeech);
 
-// Clear transcriptions when language changes
-languageSelect.addEventListener('change', () => {
-    transcriptionBox.innerHTML = '<div class="empty-state">Language changed. Click "Start Recording" to begin...</div>';
-});
+// Clear transcriptions when language changes (if element exists)
+if (languageSelect) {
+    languageSelect.addEventListener('change', () => {
+        transcriptionBox.innerHTML = '<div class="empty-state">Language changed. Click "Start Recording" to begin...</div>';
+    });
+}
+
+// Update configuration dynamically when checkbox changes
+if (interimResultsCheckbox) {
+    interimResultsCheckbox.addEventListener('change', () => {
+        if (websocket && websocket.readyState === WebSocket.OPEN) {
+            const language = languageSelect ? languageSelect.value : 'chinese';
+            const interimResults = interimResultsCheckbox.checked;
+
+            console.log("Updating config: interim_results =", interimResults);
+            websocket.send(JSON.stringify({
+                type: 'config',
+                language: language,
+                interim_results: interimResults
+            }));
+        }
+    });
+}

@@ -32,7 +32,9 @@ class StreamingASRService:
         self.chunk_size = int(sample_rate * chunk_duration)
 
         # Buffer for accumulating audio chunks
-        self.audio_buffer = deque(maxlen=100)  # Max 100 chunks (~100 seconds)
+        # Assuming chunk_duration might be small (e.g. 0.25s from frontend ScriptProcessor),
+        # 2000 chunks @ 0.25s = 500 seconds (~8 mins), ample for long speech.
+        self.audio_buffer = deque(maxlen=2000)
 
         # Minimum audio length for transcription (in seconds)
         self.min_audio_duration = 0.5
@@ -112,15 +114,15 @@ class StreamingASRService:
 
         # Calculate RMS amplitude to detect silence
         rms = np.sqrt(np.mean(audio**2))
-        SILENCE_THRESHOLD = 0.03  # Increased threshold to ignore background noise
+        SILENCE_THRESHOLD = 0.01  # Lowered threshold to sensitive/quiet mics
 
         is_final = False
 
         if rms < SILENCE_THRESHOLD:
             self.silence_counter += 1
             if (
-                self.silence_counter >= 5
-            ):  # Increased to 5 chunks (approx 1.25s) for stability
+                self.silence_counter >= 12
+            ):  # Increased to 12 chunks (approx 3.0s) for longer pause tolerance
                 if len(self.audio_buffer) > 0:
                     logger.info("Prolonged silence detected, finalizing transcription")
                     is_final = True

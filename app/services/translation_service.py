@@ -28,6 +28,9 @@ class TranslationService:
         # Dictionary-based translation fallback for common phrases
         # Min Nan romanization (POJ - Pe̍h-ōe-jī) to Chinese mapping
         self.chinese_to_minnan_dict = {
+            # ==========================================
+            # 0. 基本詞彙 (Basic)
+            # ==========================================
             "你好": "汝好",  # Hello
             "早安": "早",  # Good morning
             "謝謝": "多謝",  # Thank you
@@ -36,18 +39,12 @@ class TranslationService:
             "不是": "毋是",  # No
             "好": "好",  # Good/OK
             "不好": "無好",  # Not good
-            "吃飯": "食飯",  # Eat meal
-            "喝水": "飲水",  # Drink water
             "什麼": "啥物",  # What
             "哪裡": "佗位",  # Where
             "怎麼": "按怎",  # How
             "誰": "啥人",  # Who
             "為什麼": "為啥物",  # Why
             "多少": "偌濟",  # How much/many
-            "今天": "今仔日",  # Today
-            "明天": "明仔載",  # Tomorrow
-            "昨天": "昨昏",  # Yesterday
-            "現在": "這馬",  # Now
             "這個": "這个",  # This
             "那個": "彼个",  # That
             "我": "我",  # I/me
@@ -61,7 +58,7 @@ class TranslationService:
             "喜歡": "佮意",  # Like
             "想": "想欲",  # Want/think
             "知道": "知影",  # Know
-            "不知道": "毋知",  # Don't know
+            "不知道": "毋知影",  # Don't know
             "很": "真",  # Very
             "非常": "誠",  # Very/extremely
             "一點": "一屑仔",  # A little
@@ -77,7 +74,6 @@ class TranslationService:
             "平安": "平安",  # Peace/safe
             "健康": "健康",  # Health/healthy
             "沒問題": "無問題",  # No problem
-            "多少錢": "偌濟錢",  # How much money
             "謝謝你": "感謝你",  # Thank you (more formal)
             "請坐": "請坐",  # Please sit
             "好吃": "好食",  # Delicious
@@ -85,9 +81,233 @@ class TranslationService:
             "很高興認識你": "誠歡喜捌你",  # Nice to meet you
             "不好意思": "歹勢",  # Excuse me/Sorry
             "怎麼辦": "按怎辦",  # What to do
-            "不知道": "毋知影",  # Don't know (updated for completeness)
             "可以嗎": "會使無",  # Is it okay?
             "整天的": "歸剛誒",  # Every day
+            # ==========================================
+            # 1. 家庭與稱謂 (Family & People)
+            # ==========================================
+            "爸爸": "老爸",  # Father
+            "媽媽": "老母",  # Mother
+            "爺爺": "阿公",  # Grandfather
+            "奶奶": "阿媽",  # Grandmother
+            "哥哥": "阿兄",  # Older brother
+            "姊姊": "阿姊",  # Older sister
+            "弟弟": "小弟",  # Younger brother
+            "妹妹": "小妹",  # Younger sister
+            "先生": "先生",  # Mr. / Husband
+            "太太": "太太",  # Mrs. / Wife
+            "兒子": "後生",  # Son
+            "女兒": "查某囝",  # Daughter
+            "孫子": "孫",  # Grandchild
+            "鄰居": "隔壁的",  # Neighbor
+            "老闆": "頭家",  # Boss
+            "老闆娘": "頭家娘",  # Boss's wife
+            "客人": "人客",  # Guest/Customer
+            # ==========================================
+            # 2. 交通與位置 (Transport & Location)
+            # ==========================================
+            "捷運": "捷運",  # MRT
+            "火車": "火車",  # Train
+            "公車": "公車",  # Bus
+            "計程車": "計程車",  # Taxi
+            "飛機": "飛行機",  # Airplane
+            "機車": "機車",  # Scooter
+            "腳踏車": "孔明車",  # Bicycle
+            "車站": "車頭",  # Station
+            "票": "票",  # Ticket
+            "悠遊卡": "悠遊卡",  # EasyCard
+            "地圖": "地圖",  # Map
+            "紅綠燈": "紅綠燈",  # Traffic light
+            "塞車": "塞車",  # Traffic jam
+            "左邊": "倒手爿",  # Left side
+            "右邊": "正手爿",  # Right side
+            "前面": "頭前",  # Front
+            "後面": "後壁",  # Back/Behind
+            "裡面": "內底",  # Inside
+            "外面": "外口",  # Outside
+            "學校": "學校",  # School
+            "公司": "公司",  # Company
+            "公園": "公園",  # Park
+            "夜市": "夜市",  # Night market
+            # ==========================================
+            # 3. 日常形容詞與感覺 (Adjectives & Feelings)
+            # ==========================================
+            "漂亮": "媠",  # Beautiful
+            "醜": "䆀",  # Ugly
+            "香": "芳",  # Fragrant
+            "臭": "臭",  # Stinky
+            "乾淨": "清氣",  # Clean
+            "髒": "垃圾",  # Dirty
+            "高興": "歡喜",  # Happy
+            "生氣": "受氣",  # Angry
+            "怕": "驚",  # Scared
+            "熱鬧": "熱鬧",  # Bustling
+            "安靜": "恬",  # Quiet
+            "快": "緊",  # Fast
+            "慢": "慢",  # Slow
+            "新": "新",  # New
+            "舊": "舊",  # Old
+            "真的": "有的",  # Real/True
+            "假的": "假的",  # Fake
+            "簡單": "簡單",  # Simple
+            "困難": "困難",  # Difficult
+            "聰明": "巧",  # Smart
+            "笨": "戇",  # Stupid
+            "可愛": "古錐",  # Cute
+            "可憐": "可憐",  # Pitiful
+            "無聊": "無聊",  # Boring
+            # ==========================================
+            # 4. 常見動詞與助詞 (Verbs & Particles)
+            # ==========================================
+            "幫忙": "鬥相共",  # Help
+            "使用": "用",  # Use
+            "開始": "開始",  # Start
+            "結束": "結束",  # End
+            "等": "等",  # Wait
+            "找": "揣",  # Find
+            "拿": "提",  # Take
+            "給": "予",  # Give
+            "放": "放",  # Put
+            "問": "問",  # Ask
+            "說": "講",  # Say
+            "看見": "看見",  # See
+            "可以": "會使",  # Can
+            "不可以": "袂使",  # Cannot
+            "會有": "會",  # Will have
+            "沒有": "無",  # Don't have
+            "要": "欲",  # Want
+            "不要": "莫",  # Don't
+            "正在": "咧",  # -ing
+            # ==========================================
+            # 5. 北部天氣與生活雜項 (Weather & Misc)
+            # ==========================================
+            "雨傘": "雨傘",  # Umbrella
+            "颱風": "風颱",  # Typhoon
+            "地震": "地動",  # Earthquake
+            "垃圾桶": "垃圾桶",  # Trash can
+            "眼鏡": "目鏡",  # Glasses
+            "錢包": "錢包",  # Wallet
+            "鑰匙": "鎖匙",  # Key
+            "報紙": "報紙",  # Newspaper
+            "電視": "電視",  # TV
+            "冷氣": "冷氣",  # Air conditioner
+            "電燈": "電火",  # Light
+            # ==========================================
+            # 6. 日常生活與動作 (Daily Life & Actions)
+            # ==========================================
+            "睡覺": "睏",  # Sleep
+            "起床": "起來",  # Wake up
+            "洗澡": "洗身軀",  # Shower
+            "洗臉": "洗面",  # Wash face
+            "刷牙": "洗喙",  # Brush teeth
+            "衣服": "衫",  # Clothes
+            "褲子": "褲",  # Pants
+            "鞋子": "鞋仔",  # Shoes
+            "穿衣服": "穿衫",  # Dress up
+            "脫衣服": "脫衫",  # Undress
+            "講話": "講話",  # Speak
+            "聽": "聽",  # Listen
+            "看": "看",  # Look
+            "走": "行",  # Walk
+            "跑": "走",  # Run
+            "去": "去",  # Go
+            "來": "來",  # Come
+            "買東西": "買物件",  # Shopping
+            "買": "買",  # Buy
+            "太貴": "傷貴",  # Too expensive
+            "便宜": "俗",  # Cheap
+            "下雨": "落雨",  # Rain
+            "工作": "食頭路",  # Work
+            "上學": "讀冊",  # School
+            "回家": "轉去",  # Go home
+            "房子": "厝",  # House
+            "廁所": "便所",  # Toilet
+            "廚房": "灶跤",  # Kitchen
+            "打電話": "拍電話",  # Phone call
+            # ==========================================
+            # 7. 醫療與身體 (Medical & Body)
+            # ==========================================
+            "醫生": "醫生",  # Doctor
+            "護士": "護士",  # Nurse
+            "醫院": "病院",  # Hospital
+            "生病": "破病",  # Sick
+            "感冒": "感冒",  # Cold
+            "發燒": "發燒",  # Fever
+            "頭痛": "頭殼痛",  # Headache
+            "肚子痛": "腹肚痛",  # Stomachache
+            "咳嗽": "嗽",  # Cough
+            "藥": "藥仔",  # Medicine
+            "吃藥": "食藥",  # Take medicine
+            "打針": "拍針",  # Injection
+            "痛": "痛",  # Pain
+            "癢": "癢",  # Itchy
+            "累": "忝",  # Tired
+            "身體": "身軀",  # Body
+            "手": "手",  # Hand
+            "腳": "跤",  # Foot/Leg
+            "眼睛": "目睭",  # Eye
+            "耳朵": "耳仔",  # Ear
+            "嘴巴": "喙",  # Mouth
+            "脖子": "頷頸",  # Neck
+            "背": "尻脊骿",  # Back
+            "流血": "流血",  # Bleeding
+            "血壓": "血壓",  # Blood pressure
+            "慢慢來": "寬寬仔來",  # Take it easy
+            # ==========================================
+            # 8. 食物與味道 (Food & Taste)
+            # ==========================================
+            "水": "水",  # Water
+            "茶": "茶",  # Tea
+            "飯": "飯",  # Rice
+            "麵": "麵",  # Noodles
+            "菜": "菜",  # Vegetables
+            "肉": "肉",  # Meat
+            "魚": "魚",  # Fish
+            "蛋": "卵",  # Egg
+            "水果": "果子",  # Fruit
+            "冰": "冰",  # Ice
+            "熱": "燒",  # Hot
+            "冷": "冷",  # Cold
+            "甜": "甜",  # Sweet
+            "鹹": "鹹",  # Salty
+            "酸": "酸",  # Sour
+            "苦": "苦",  # Bitter
+            "辣": "辣",  # Spicy
+            "筷子": "箸",  # Chopsticks
+            "湯匙": "湯匙",  # Spoon
+            "碗": "碗",  # Bowl
+            "飽": "飽",  # Full
+            "餓": "枵",  # Hungry
+            "吃飯": "食飯",  # Eat
+            # ==========================================
+            # 9. 時間與其他 (Time & Others)
+            # ==========================================
+            "今天": "今仔日",  # Today
+            "明天": "明仔載",  # Tomorrow
+            "昨天": "昨昏",  # Yesterday
+            "現在": "這馬",  # Now
+            "早上": "早起",  # Morning
+            "中午": "中晝",  # Noon
+            "下午": "下晡",  # Afternoon
+            "晚上": "暗時",  # Night
+            "以前": "進前",  # Before
+            "以後": "以後",  # After
+            "剛才": "頭先",  # Just now
+            "等一下": "等咧",  # Wait a moment
+            "大": "大",  # Big
+            "小": "細",  # Small
+            "男": "查埔",  # Male
+            "女": "查某",  # Female
+            "小孩": "囡仔",  # Child
+            "大人": "大人",  # Adult
+            "老人": "老歲仔",  # Elderly
+            "老師": "老師",  # Teacher
+            "學生": "學生",  # Student
+            "朋友": "朋友",  # Friend
+            "錢": "錢",  # Money
+            "車": "車",  # Car
+            "書": "冊",  # Book
+            "多少錢": "偌濟錢",  # How much money
         }
 
         # Reverse dictionary for Min Nan to Chinese
