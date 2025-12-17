@@ -1,14 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-TW">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>即時語音辨識（中文 -> 閩南語）</title>
-    <link rel="stylesheet" href="style.css?v=2">
+    <title>台語語音辨識與翻譯機器人</title>
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="style.css?v=22">
 </head>
 
 <body>
+    <div class="solar-system">
+        <div class="planet mercury"></div>
+        <div class="planet venus"></div>
+        <div class="planet earth"></div>
+        <div class="planet mars"></div>
+        <div class="planet jupiter"></div>
+        <div class="planet saturn"></div>
+        <div class="planet uranus"></div>
+        <div class="planet neptune"></div>
+    </div>
     <div class="app-wrapper">
         <div class="sidebar">
             <h2>歷史紀錄</h2>
@@ -18,8 +29,8 @@
         </div>
         <div class="container">
             <div class="panel asr-panel">
-                <h1>普通話 -> 閩南語</h1>
-                <p class="subtitle">中文語音辨識：請確定環境噪音低於30分貝，並按下開始錄音，即可辨識中文語音，停止錄音後請稍等</p>
+                <h1>華語 -> 台語</h1>
+                <p class="subtitle">華語語音辨識：請確定環境噪音低於30分貝，並按下開始錄音，即可辨識華語語音，停止錄音後請稍等</p>
 
                 <div class="config-section">
                     <div class="form-group">
@@ -42,33 +53,29 @@
                     <button id="stopBtn" type="button" disabled>停止錄音</button>
                 </div>
 
-                <div class="speaker-controls">
-                    <label>目前講者：</label>
-                    <div class="speaker-toggle">
-                        <button id="speakerABtn" class="speaker-btn active" onclick="setSpeaker('A')">講者 A</button>
-                        <button id="speakerBBtn" class="speaker-btn" onclick="setSpeaker('B')">講者 B</button>
-                    </div>
-                </div>
+
 
                 <div id="status" class="status disconnected">
-                    Disconnected
+                    未連線
                 </div>
 
                 <div class="transcription-box" id="transcriptionBox">
                     <div class="empty-state">
-                        Click "Start Recording" to begin...
+                        請點擊 "開始錄音" 以開始...
                     </div>
                 </div>
             </div>
 
+            <div class="vertical-divider"></div>
+
             <div class="panel tts-panel">
-                <h1>打字輸入語音辨識(TTS)</h1>
-                <p class="subtitle">Convert text to Min Nan speech</p>
+                <h1>文字轉語音 (TTS)</h1>
+                <p class="subtitle">輸入文字轉換為台語語音</p>
 
                 <div class="config-section">
                     <div class="form-group">
                         <label for="ttsText">輸入文字:</label>
-                        <textarea id="ttsText" placeholder="請輸入您想要轉換的文本"></textarea>
+                        <textarea id="ttsText" placeholder="請輸入您想要轉換的文字"></textarea>
                     </div>
                     <div class="form-group">
                         <!-- <label for="ttsSourceLang">Source Language:</label>
@@ -78,7 +85,7 @@
                     </div>
                 </div>
                 <div class="controls">
-                    <button id="ttsBtn" type="button">生成音檔</button>
+                    <div id="ttsBtn" class="btn" role="button" tabindex="0">產生音檔</div>
                 </div>
                 <div id="ttsStatus" class="status" style="display: none;"></div>
                 <audio id="ttsAudioPlayer" controls autoplay class="tts-audio-player" style="display: none;"></audio>
@@ -86,7 +93,8 @@
         </div>
     </div>
 
-    <script src="script.js?v=2"></script>
+    <script src="script.js?v=22"></script>
+    </script>
 </body>
 
 </html>

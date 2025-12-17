@@ -114,17 +114,22 @@ class StreamingASRService:
 
         # Calculate RMS amplitude to detect silence
         rms = np.sqrt(np.mean(audio**2))
-        SILENCE_THRESHOLD = 0.01  # Lowered threshold to sensitive/quiet mics
+        SILENCE_THRESHOLD = 0.002  # Lowered threshold for quiet mics
+
+        # Log RMS for debugging (optional)
+        # logger.debug(f"Audio RMS: {rms:.4f}")
 
         is_final = False
 
         if rms < SILENCE_THRESHOLD:
             self.silence_counter += 1
             if (
-                self.silence_counter >= 3
-            ):  # Reduced to 3 chunks (approx 0.768s) for very fast 0.7s response
+                self.silence_counter >= 6
+            ):  # Increased to 6 chunks (approx 1.5s) to prevent premature cutoff
                 if len(self.audio_buffer) > 0:
-                    logger.info("Silence detected, finalizing transcription")
+                    logger.info(
+                        f"Silence detected (RMS < {SILENCE_THRESHOLD}), finalizing transcription"
+                    )
                     is_final = True
                     # We will transcribe one last time below, then reset
                     # Note: We reset AFTER transcription

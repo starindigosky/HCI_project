@@ -96,6 +96,11 @@ The service includes a built-in dictionary with common Min Nan phrases:
 
 ...and 20+ more phrases!
 
+## Localization Strategy (在地化策略)
+
+### 同形異義詞風險與文化脈絡 (False Friends & Cultural Context)
+北部閩南語深受日語影響（如「歐巴桑」、「運將」），同時也受國語影響。字典對應中的直譯（例如「可愛」翻成「可愛」而非「古錐」）可能會被認為「台語不標準」。我在上述詞庫中盡量使用了道地的詞彙（如「可愛」->「古錐」），但仍需注意用戶輸入俚語時（如「很瞎」）系統是否能正確捕捉語意而非字面翻譯。
+
 ## Neural Translation Model
 
 ### Model Information

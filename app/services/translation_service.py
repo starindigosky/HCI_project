@@ -2,6 +2,8 @@ import torch
 from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
 import time
 import logging
+import json
+import os
 from typing import Tuple, Optional
 from ..config import settings
 from ..models.schemas import LanguageType
@@ -315,6 +317,23 @@ class TranslationService:
             v: k for k, v in self.chinese_to_minnan_dict.items()
         }
 
+        # Load Slang Dictionary (Priority 1)
+        self.slang_dict = {}
+        try:
+            slang_path = os.path.join(
+                os.path.dirname(__file__), "..", "data", "slang_dict.json"
+            )
+            if os.path.exists(slang_path):
+                with open(slang_path, "r", encoding="utf-8") as f:
+                    self.slang_dict = json.load(f)
+                logger.info(
+                    f"Loaded slang dictionary with {len(self.slang_dict)} entries"
+                )
+            else:
+                logger.warning(f"Slang dictionary not found at {slang_path}")
+        except Exception as e:
+            logger.error(f"Error loading slang dictionary: {e}")
+
     def load_models(self):
         """Load NMT models (lazy loading)"""
         try:
@@ -482,7 +501,15 @@ class TranslationService:
         if source_language == target_language:
             return text, 0.0
 
-        # Try dictionary translation first for common phrases (faster)
+        # Priority 1: Semantic/Slang Translation (High Context)
+        if (
+            source_language == LanguageType.CHINESE
+            and target_language == LanguageType.MIN_NAN
+            and text in self.slang_dict
+        ):
+            return self.slang_dict[text], 0.0
+
+        # Priority 2: Dictionary translation first for common phrases (faster)
         dict_translation = self.dictionary_translate(
             text, source_language, target_language
         )
@@ -539,6 +566,20 @@ class TranslationService:
             }
         """
         start_time = time.time()
+
+        # 0. Check Slang Dictionary First (Priority 1)
+        if (
+            source_language == LanguageType.CHINESE
+            and target_language == LanguageType.MIN_NAN
+            and text in self.slang_dict
+        ):
+            processing_time = time.time() - start_time
+            return {
+                "translated_text": self.slang_dict[text],
+                "method": "semantic_slang",
+                "confidence": "high",
+                "processing_time": processing_time,
+            }
 
         # 1. Dictionary Translation (High Confidence)
         dict_translation = self.dictionary_translate(

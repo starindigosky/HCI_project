@@ -200,23 +200,9 @@ async function getSynthesizedAudio(text) {
 // Speaker Management
 let currentSpeaker = 'A';
 
-function setSpeaker(speaker) {
-    currentSpeaker = speaker;
 
-    // Update buttons
-    const btnA = document.getElementById('speakerABtn');
-    const btnB = document.getElementById('speakerBBtn');
 
-    if (speaker === 'A') {
-        btnA.classList.add('active');
-        btnB.classList.remove('active');
-    } else {
-        btnA.classList.remove('active');
-        btnB.classList.add('active');
-    }
-}
-
-async function addTranscription(text, isFinal = true, details = {}) {
+async function addTranscription(text, isFinal = true, details = {}, speakerOverride = null) {
     // Remove empty state if present
     const emptyState = transcriptionBox.querySelector('.empty-state');
     if (emptyState) emptyState.remove();
@@ -226,18 +212,25 @@ async function addTranscription(text, isFinal = true, details = {}) {
     const translatedText = details.translated_text || text; // Target (e.g. Min Nan) or same
     const confidence = details.confidence || 'low';
     const method = details.method || 'fallback';
-    const speaker = details.speaker || currentSpeaker; // Use passed speaker or global state
+
+    // Determine the speaker to use
+    // Priority: speakerOverride > details.speaker > currentSpeaker
+    const speaker = speakerOverride || details.speaker || currentSpeaker;
 
     // UI Class for confidence coloring
-    // High confidence (dict match) -> Green-ish text/border
-    // Low confidence (fallback) -> Normal/Gray-ish
     const confidenceClass = confidence === 'high' ? 'high-confidence' : 'low-confidence';
 
     // Find or create transcription item
     let item;
+    const existingInterim = transcriptionBox.querySelector('.transcription-item.interim');
+
     if (!isFinal) {
-        item = transcriptionBox.querySelector('.transcription-item:last-child.interim');
-        if (!item) {
+        if (existingInterim) {
+            item = existingInterim;
+            // IMPORTANT: Do NOT change the speaker class if it exists.
+            // Verify speaker consistency (optional safety)
+            if (!item.dataset.speaker) item.dataset.speaker = speaker;
+        } else {
             item = document.createElement('div');
             // Store speaker in dataset for persistence
             item.dataset.speaker = speaker;
@@ -255,9 +248,9 @@ async function addTranscription(text, isFinal = true, details = {}) {
             transcriptionBox.appendChild(item);
         }
     } else {
-        // If it was an interim result, finalize it. Otherwise, create a new one.
-        item = transcriptionBox.querySelector('.transcription-item:last-child.interim');
-        if (item) {
+        // Finalize
+        if (existingInterim) {
+            item = existingInterim;
             item.classList.remove('interim');
             // Use EXISTING speaker from dataset to prevent switching active item
             const lockedSpeaker = item.dataset.speaker || speaker;
@@ -337,6 +330,7 @@ async function addTranscription(text, isFinal = true, details = {}) {
 }
 
 async function startRecording() {
+    isSystemSpeaking = false; // Force mic enabled
     try {
         // Connect WebSocket
         websocket = new WebSocket(ASR_WS_URL);
@@ -391,20 +385,30 @@ async function startRecording() {
             const message = JSON.parse(event.data);
 
             if (message.type === 'transcription') {
+                let speakerForThisItem = null;
+
+                // Check if this result was forced by a speaker switch
+                if (message.cause === 'switch_speaker_forced') {
+                    // This result belongs to the PREVIOUS speaker
+                    // If current is A, previous was B. If current is B, previous was A.
+                    speakerForThisItem = (currentSpeaker === 'A' ? 'B' : 'A');
+                    console.log(`Received forced finalize result. Attributing to PREVIOUS speaker: ${speakerForThisItem}`);
+                }
+
                 if (message.translated_text) {
                     // Hybrid result
                     addTranscription(message.text, message.is_final, {
                         translated_text: message.translated_text,
                         method: message.method,
                         confidence: message.confidence
-                    });
+                    }, speakerForThisItem);
                 } else {
-                    // Legacy/Interim simple result
-                    addTranscription(message.text, message.is_final);
+                    // Legacy/Interim simple result (shouldn't really happen with hybrid, but safe fallback)
+                    addTranscription(message.text, message.is_final, {}, speakerForThisItem);
                 }
             } else if (message.type === 'error') {
                 console.error('WebSocket error:', message.message);
-                alert('Error: ' + message.message);
+                updateStatus('Error: ' + message.message, 'disconnected');
             } else if (message.type === 'stopped') {
                 updateStatus('Stopped', 'disconnected');
                 if (websocket) {
@@ -415,6 +419,7 @@ async function startRecording() {
                 stopBtn.disabled = true;
             }
         };
+
 
         websocket.onerror = (error) => {
             console.error('WebSocket error:', error);
@@ -436,6 +441,8 @@ async function startRecording() {
 
 function stopRecording(e) {
     if (e) e.preventDefault();
+    isSystemSpeaking = false; // Force mic enabled
+
 
     try {
         // Send stop message
@@ -466,11 +473,13 @@ function stopRecording(e) {
         } 
         */
 
-        // Clear Audio Queue
-        audioQueue.length = 0;
-        isPlaying = false;
-        // Remove 'playing' class from all items if any
-        document.querySelectorAll('.transcription-item.playing').forEach(el => el.classList.remove('playing'));
+        // Clear Audio Queue - CHANGED: Don't clear queue on stop, let it finish speaking
+        // audioQueue.length = 0;
+        // isPlaying = false;
+
+        // Remove 'playing' class only from items that might have been manually stopped? 
+        // Actually, if we let it play, we don't remove class yet.
+        // document.querySelectorAll('.transcription-item.playing').forEach(el => el.classList.remove('playing'));
 
         startBtn.disabled = false;
         stopBtn.disabled = true;
@@ -488,7 +497,13 @@ async function synthesizeSpeech(e) {
         return;
     }
 
-    ttsBtn.disabled = true;
+    // Check if disabled (using class for DIV)
+    if (ttsBtn.classList.contains('disabled')) return false;
+
+    ttsBtn.classList.add('disabled');
+    // Mute microphone to prevent ASR feedback loop (CRITICAL FIX)
+    isSystemSpeaking = true;
+
     ttsAudioPlayer.style.display = 'none';
     updateTtsStatus('Synthesizing speech...', 'synthesizing', true);
 
@@ -533,13 +548,28 @@ async function synthesizeSpeech(e) {
         console.error('TTS Error:', error);
         updateTtsStatus(`Error: ${error.message}`, 'disconnected', true);
     } finally {
-        ttsBtn.disabled = false;
+        ttsBtn.classList.remove('disabled');
+        // Unmute microphone after a delay (to let audio finish if playing)
+        // But ttsAudioPlayer.play() is async, so we should hook into 'onended'
+        // For now, simpler to set false here, but play() is awaited above?
+        // await ttsAudioPlayer.play() waits for Promise, which resolves when playback STARTS, not ends.
+        // So we need to listen to onended.
+
+        ttsAudioPlayer.onended = () => {
+            isSystemSpeaking = false;
+        };
+        // If play failed, or ended immediately
+        if (ttsAudioPlayer.paused) {
+            isSystemSpeaking = false;
+        }
     }
+    return false; // Enhance prevention
 }
 
 startBtn.addEventListener('click', startRecording);
 stopBtn.addEventListener('click', stopRecording);
 ttsBtn.addEventListener('click', synthesizeSpeech);
+
 
 // Clear transcriptions when language changes (if element exists)
 if (languageSelect) {

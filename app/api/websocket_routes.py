@@ -58,7 +58,12 @@ async def websocket_asr_endpoint(websocket: WebSocket):
     session = streaming_session_manager.create_session(session_id)
 
     # Session configuration
-    config = {"language": LanguageType.CHINESE, "interim_results": False}
+    # Session configuration
+    config = {
+        "language": LanguageType.CHINESE,
+        "target_language": LanguageType.MIN_NAN,
+        "interim_results": False,
+    }
 
     logger.info(f"WebSocket ASR connection established: session={session_id}")
 
@@ -76,8 +81,10 @@ async def websocket_asr_endpoint(websocket: WebSocket):
                     if message_type == "config":
                         # Update configuration
                         lang = message.get("language", "chinese")
+                        target_lang_str = message.get("target_language", "min_nan")
                         try:
                             config["language"] = LanguageType(lang)
+                            config["target_language"] = LanguageType(target_lang_str)
                             config["interim_results"] = message.get(
                                 "interim_results", False
                             )
@@ -86,6 +93,7 @@ async def websocket_asr_endpoint(websocket: WebSocket):
                                 {
                                     "type": "config_updated",
                                     "language": lang,
+                                    "target_language": target_lang_str,
                                     "interim_results": config["interim_results"],
                                 }
                             )
@@ -96,6 +104,67 @@ async def websocket_asr_endpoint(websocket: WebSocket):
                                     "message": f"Invalid language: {lang}. Must be 'chinese' or 'min_nan'",
                                 }
                             )
+
+                    elif message_type == "switch_speaker":
+                        # Force finalization of current buffer
+                        final_text = await session.transcribe_final(config["language"])
+
+                        if final_text:
+                            # Hallucination Filtering
+                            # Common hallucinations for empty audio: "你", "你好", "謝謝", "嗯"
+                            hallucinations = {
+                                "你",
+                                "你好",
+                                "謝謝",
+                                "嗯",
+                                "你說",
+                                "我",
+                                "阿",
+                                "蛤",
+                            }
+                            is_short = len(final_text.strip()) <= 1
+                            is_hallucination = final_text.strip() in hallucinations
+
+                            if not (is_short or is_hallucination):
+                                # 1. Get detailed translation
+                                from app.services.translation_service import (
+                                    translation_service,
+                                )
+
+                                target_lang = config["target_language"]
+                                source_lang = config["language"]
+
+                                trans_result = (
+                                    translation_service.translate_with_details(
+                                        final_text, source_lang, target_lang
+                                    )
+                                )
+
+                                logger.info(
+                                    f"Forced finalization result: '{final_text}' -> '{trans_result['translated_text']}'"
+                                )
+
+                                await websocket.send_json(
+                                    {
+                                        "type": "transcription",
+                                        "text": final_text,
+                                        "translated_text": trans_result[
+                                            "translated_text"
+                                        ],
+                                        "method": trans_result["method"],
+                                        "confidence": trans_result["confidence"],
+                                        "is_final": True,
+                                        "cause": "switch_speaker_forced",
+                                    }
+                                )
+                            else:
+                                logger.info(
+                                    f"Filtered hallucination/short text: '{final_text}'"
+                                )
+
+                        # Reset buffer immediately for the new speaker
+                        session.reset_buffer()
+                        session.silence_counter = 0
 
                     elif message_type == "stop":
                         # Get final transcription
@@ -141,13 +210,42 @@ async def websocket_asr_endpoint(websocket: WebSocket):
                     )
 
                     if text:
+                        # Hallucination Filtering for streaming results
+                        # Common hallucinations for empty/noise audio
+                        hallucinations = {
+                            "你",
+                            "你好",
+                            "謝謝",
+                            "嗯",
+                            "你說",
+                            "我",
+                            "阿",
+                            "蛤",
+                            "。",
+                            "，",
+                            "？",
+                            "！",
+                            " ",
+                            "",
+                        }
+
+                        # Only filter if it's a "Final" result to avoid blocking legitimate sentence starts
+                        if is_final:
+                            clean_text = text.strip()
+                            if clean_text in hallucinations or len(clean_text) == 0:
+                                logger.info(
+                                    f"Filtered streaming hallucination: '{text}'"
+                                )
+                                session.reset_buffer()
+                                session.silence_counter = 0
+                                continue
+
                         # 1. Get detailed translation
                         from app.services.translation_service import translation_service
 
-                        # Assuming target is MIN_NAN from config, or default
-                        target_lang = LanguageType.MIN_NAN
-                        # Map config language string to Enum if needed
-                        source_lang = LanguageType.CHINESE
+                        # Use configured languages
+                        target_lang = config["target_language"]
+                        source_lang = config["language"]
 
                         trans_result = translation_service.translate_with_details(
                             text, source_lang, target_lang
@@ -176,8 +274,13 @@ async def websocket_asr_endpoint(websocket: WebSocket):
                         logger.debug("Transcription was empty/None")
 
                 except Exception as e:
-                    logger.error(f"Error processing audio: {str(e)}")
-                    await websocket.send_json({"type": "error", "message": str(e)})
+                    import traceback
+
+                    error_trace = traceback.format_exc()
+                    logger.error(f"Error processing audio: {error_trace}")
+                    await websocket.send_json(
+                        {"type": "error", "message": f"Internal Error: {str(e)}"}
+                    )
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket ASR disconnected: session={session_id}")

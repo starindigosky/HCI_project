@@ -32,7 +32,7 @@ body {
     background-size: 550px 550px, 350px 350px, 250px 250px, 400% 400%;
     background-position: 0 0, 40px 60px, 130px 270px, 0% 50%;
 
-    animation: gradientBG 30s ease infinite;
+    animation: gradientBG 60s ease infinite;
     /* Slower gradient shift */
     will-change: background-position;
     /* Optimization */
@@ -42,10 +42,11 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    /* Center content vertically too */
 }
 
-/* Animated Background Gradient */
+/* Snowfall Animation */
+/* Removed snowfall animation as it's replaced by gradientBG */
+
 @keyframes gradientBG {
     0% {
         background-position: 0 0, 40px 60px, 130px 270px, 0% 50%;
@@ -112,21 +113,21 @@ body {
 
 /* Main Container (ASR & TTS) */
 .container {
-    background: var(--glass-bg);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--panel-radius);
-    box-shadow: var(--glass-shadow);
-    padding: 40px;
+    background: transparent;
+    /* Remove container bg to show stars */
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: none;
+    box-shadow: none;
+    padding: 20px 0;
+    /* Reduced padding */
     width: 100%;
     display: flex;
-    gap: 40px;
+    gap: 10px;
+    /* Gap handled by divider margins */
     flex-wrap: wrap;
-    align-items: flex-start;
-    animation: float 14s ease-in-out infinite reverse;
-    /* Float in opposite phase */
-    will-change: transform;
+    align-items: stretch;
+    justify-content: center;
 }
 
 /* Panels (Left/Right) */
@@ -136,13 +137,66 @@ body {
     display: flex;
     flex-direction: column;
     position: relative;
+    background: rgba(16, 24, 50, 0.6);
+    /* Deep space blue glass */
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(100, 210, 255, 0.3);
+    /* Cyan neon border */
+    border-radius: var(--panel-radius);
+    padding: 30px;
+    box-shadow:
+        0 10px 40px rgba(0, 0, 0, 0.6),
+        inset 0 0 30px rgba(100, 210, 255, 0.05);
+    /* Inner glow */
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-/* Separator Line */
+.panel:hover {
+    box-shadow:
+        0 15px 50px rgba(0, 0, 0, 0.7),
+        0 0 20px rgba(100, 210, 255, 0.2),
+        /* Outer glow on hover */
+        inset 0 0 30px rgba(100, 210, 255, 0.1);
+}
+
+/* Independent Vertical Divider */
+.vertical-divider {
+    display: none;
+    /* Hidden on mobile */
+    width: 0;
+    border-left: 4px dashed rgba(100, 210, 255, 0.4);
+    margin: 20px 30px;
+    box-shadow: 0 0 15px rgba(100, 210, 255, 0.3);
+    /* Glowing line */
+    position: relative;
+}
+
+/* Add a glowing orb in middle of divider? Optional */
+.vertical-divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: -6px;
+    /* Center on 4px line */
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    border-radius: 50%;
+    box-shadow: 0 0 10px #00f2ff, 0 0 20px #00f2ff;
+}
+
+@media (min-width: 900px) {
+    .vertical-divider {
+        display: block;
+    }
+}
+
+/* Separator Line - Removed old border logic */
 @media (min-width: 900px) {
     .panel.tts-panel {
-        border-left: 1px solid var(--glass-border);
-        padding-left: 40px;
+        border-left: none;
+        padding-left: 30px;
     }
 }
 
@@ -151,9 +205,7 @@ h1 {
     font-size: 2rem;
     font-weight: 700;
     margin-bottom: 5px;
-    background: linear-gradient(to right, #fff, #b3cdd1);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+    color: var(--text-primary);
 }
 
 .subtitle {
@@ -191,7 +243,7 @@ textarea {
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid var(--glass-border);
     border-radius: 10px;
-    color: white;
+    color: var(--text-primary);
     font-size: 1rem;
     transition: all 0.3s ease;
 }
@@ -230,7 +282,8 @@ textarea {
     margin-bottom: 25px;
 }
 
-button {
+button,
+.btn {
     flex: 1;
     padding: 15px;
     border: none;
@@ -246,9 +299,15 @@ button {
     position: relative;
     color: white;
     box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
 }
 
-button::after {
+
+button::after,
+.btn::after {
     content: '';
     position: absolute;
     top: 0;
@@ -263,7 +322,8 @@ button::after {
     background: linear-gradient(45deg, #11998e, #38ef7d);
 }
 
-#startBtn:hover:not(:disabled) {
+#startBtn:hover:not(:disabled),
+#startBtn:hover:not(.disabled) {
     transform: translateY(-3px) scale(1.02);
     box-shadow: 0 8px 25px rgba(56, 239, 125, 0.4);
 }
@@ -272,7 +332,8 @@ button::after {
     background: linear-gradient(45deg, #eb3349, #f45c43);
 }
 
-#stopBtn:hover:not(:disabled) {
+#stopBtn:hover:not(:disabled),
+#stopBtn:hover:not(.disabled) {
     transform: translateY(-3px) scale(1.02);
     box-shadow: 0 8px 25px rgba(244, 92, 67, 0.4);
 }
@@ -281,17 +342,10 @@ button::after {
     background: linear-gradient(45deg, #2193b0, #6dd5ed);
 }
 
-#ttsBtn:hover:not(:disabled) {
+#ttsBtn:hover:not(:disabled),
+#ttsBtn:hover:not(.disabled) {
     transform: translateY(-3px) scale(1.02);
     box-shadow: 0 8px 25px rgba(33, 147, 176, 0.4);
-}
-
-button:disabled {
-    background: #555;
-    opacity: 0.6;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
 }
 
 /* Status Indicators */
@@ -558,10 +612,144 @@ audio {
     border-radius: 15px;
 }
 
-.empty-history,
-.empty-state {
-    color: rgba(255, 255, 255, 0.4);
-    text-align: center;
-    font-style: italic;
-    padding: 20px;
+/* Solar System Background */
+.solar-system {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.app-wrapper {
+    position: relative;
+    z-index: 10;
+}
+
+.planet {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.8;
+    /* Much more visible */
+    box-shadow: inset -12px -12px 20px rgba(0, 0, 0, 0.7), 0 0 10px rgba(0, 0, 0, 0.3);
+    /* Strong 3D sphere effect, low glow */
+    animation: float 30s ease-in-out infinite alternate;
+}
+
+/* Mercury - Gray/Brown Cratered */
+.planet.mercury {
+    width: 40px;
+    height: 40px;
+    background: radial-gradient(circle at 30% 30%, #ecf0f1, #95a5a6);
+    top: 15%;
+    left: 15%;
+    animation-delay: 0s;
+}
+
+/* Venus - Yellow/Orange Cloudy */
+.planet.venus {
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle at 30% 30%, #f1c40f, #e67e22);
+    bottom: 25%;
+    left: 8%;
+    animation-delay: -5s;
+}
+
+/* Earth - Blue/Green */
+.planet.earth {
+    width: 70px;
+    height: 70px;
+    background: radial-gradient(circle at 30% 30%, #3498db, #2980b9);
+    /* Simple continents via shadow or extra gradient not easy in one line, sticking to blue marble look */
+    background-image: radial-gradient(circle at 50% 50%, rgba(46, 204, 113, 0.6) 20%, transparent 25%),
+        radial-gradient(circle at 20% 40%, rgba(46, 204, 113, 0.6) 15%, transparent 20%);
+    top: 10%;
+    right: 25%;
+    animation-delay: -2s;
+    opacity: 0.9;
+}
+
+/* Mars - Red */
+.planet.mars {
+    width: 50px;
+    height: 50px;
+    background: radial-gradient(circle at 30% 30%, #e74c3c, #c0392b);
+    top: 45%;
+    left: 5%;
+    animation-delay: -8s;
+}
+
+/* Jupiter - Striped Giant */
+.planet.jupiter {
+    width: 160px;
+    height: 160px;
+    background: linear-gradient(180deg,
+            #d35400 0%, #e67e22 20%, #f39c12 40%,
+            #d35400 50%, #e67e22 60%, #f39c12 80%, #d35400 100%);
+    top: 5%;
+    right: 5%;
+    opacity: 0.6;
+    /* Back layer */
+    animation-delay: -10s;
+    box-shadow: inset -20px -20px 40px rgba(0, 0, 0, 0.6);
+    transform: rotate(-30deg);
+}
+
+button:disabled,
+.btn.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+    filter: grayscale(0.5);
+}
+
+/* Saturn - Ringed */
+.planet.saturn {
+    width: 100px;
+    height: 100px;
+    background: radial-gradient(circle at 30% 30%, #f1c40f, #d35400);
+    bottom: 15%;
+    right: 10%;
+    opacity: 0.7;
+    animation-delay: -3s;
+}
+
+.planet.saturn::after {
+    content: '';
+    position: absolute;
+    width: 160%;
+    height: 40%;
+    top: 30%;
+    left: -30%;
+    border: 12px solid rgba(230, 230, 230, 0.6);
+    border-radius: 50%;
+    transform: rotate(20deg);
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Uranus - Pale Cyan */
+.planet.uranus {
+    width: 70px;
+    height: 70px;
+    background: radial-gradient(circle at 30% 30%, #81ecec, #00cec9);
+    bottom: 5%;
+    left: 40%;
+    opacity: 0.7;
+    animation-delay: -12s;
+}
+
+/* Neptune - Deep Blue */
+.planet.neptune {
+    width: 65px;
+    height: 65px;
+    background: radial-gradient(circle at 30% 30%, #74b9ff, #0984e3);
+    top: 60%;
+    right: 2%;
+    opacity: 0.7;
+    animation-delay: -7s;
 }
