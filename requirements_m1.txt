@@ -1,0 +1,36 @@
+# --- Web Framework & Server ---
+fastapi
+uvicorn
+uvloop              # 讓 M1 跑得更快
+python-multipart    # 處理音檔上傳
+pydantic-settings   # 管理 .env 設定 (原版漏了這個會報錯)
+python-dotenv
+aiofiles            # 處理檔案讀寫 (原版漏了這個會報錯)
+
+# --- AI & Deep Learning ---
+torch
+torchaudio
+transformers
+accelerate          # Hugging Face 模型加速用
+numpy
+scipy
+
+# --- Audio Processing ---
+openai-whisper
+librosa
+soundfile
+pydub               # 音檔格式處理 (mp3/wav轉換)
+
+# --- Translation Model Dependencies ---
+# 這些是為了跑 Chinese-Min Nan 翻譯模型 (M2M-100)
+sentencepiece
+sacremoses
+protobuf
+
+# --- Utils ---
+requests
+tqdm                # 進度條 (下載模型時會顯示)
+httpx               # 網路請求
+websockets          # 即時通訊用
+taibun
+opencc

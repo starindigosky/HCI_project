@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-time ASR & TTS Client - Min Nan & Chinese Voice Chatbot</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="app-wrapper">
+        <div class="sidebar">
+            <h2>📜 Audio History</h2>
+            <div id="historyList" class="history-list">
+                <!-- History items will be inserted here -->
+                <div class="empty-history">No audio generated yet.</div>
+            </div>
+        </div>
+        <div class="container">
+            <div class="panel asr-panel">
+                <h1>🎤 Real-time Voice Recognition</h1>
+                <p class="subtitle">Min Nan & Chinese Voice Chatbot</p>
+
+                <div class="config-section">
+                    <div class="form-group">
+                        <label for="language">Language:</label>
+                        <select id="language">
+                            <option value="chinese">Chinese (中文)</option>
+                            <option value="min_nan">Min Nan (閩南語)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="interimResults">
+                            <label for="interimResults">Show interim results</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="controls">
+                    <button id="startBtn" type="button">Start Recording</button>
+                    <button id="stopBtn" type="button" disabled>Stop Recording</button>
+                </div>
+
+                <div id="status" class="status disconnected">
+                    Disconnected
+                </div>
+
+                <div class="transcription-box" id="transcriptionBox">
+                    <div class="empty-state">
+                        Click "Start Recording" to begin...
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel tts-panel">
+                <h1>📝 Text-to-Speech (TTS)</h1>
+                <p class="subtitle">Convert text to Min Nan speech</p>
+
+                <div class="config-section">
+                    <div class="form-group">
+                        <label for="ttsText">Text to Synthesize:</label>
+                        <textarea id="ttsText" placeholder="Enter Chinese or Min Nan text here..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="ttsSourceLang">Source Language:</label>
+                        <select id="ttsSourceLang">
+                            <option value="chinese">Chinese (中文)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button id="ttsBtn" type="button">Synthesize Speech</button>
+                </div>
+                <div id="ttsStatus" class="status" style="display: none;"></div>
+                <audio id="ttsAudioPlayer" controls autoplay class="tts-audio-player" style="display: none;"></audio>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
