@@ -121,10 +121,10 @@ class StreamingASRService:
         if rms < SILENCE_THRESHOLD:
             self.silence_counter += 1
             if (
-                self.silence_counter >= 12
-            ):  # Increased to 12 chunks (approx 3.0s) for longer pause tolerance
+                self.silence_counter >= 3
+            ):  # Reduced to 3 chunks (approx 0.768s) for very fast 0.7s response
                 if len(self.audio_buffer) > 0:
-                    logger.info("Prolonged silence detected, finalizing transcription")
+                    logger.info("Silence detected, finalizing transcription")
                     is_final = True
                     # We will transcribe one last time below, then reset
                     # Note: We reset AFTER transcription
