@@ -1,15 +1,10 @@
-#!/usr/bin/env python3
-"""
-Demo script to test the translation service
 
-This script demonstrates the Chinese ↔ Min Nan translation functionality
-without requiring the full server to be running.
-"""
+
 
 import sys
 import os
 
-# Add app directory to path
+
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.services.translation_service import TranslationService
@@ -17,14 +12,14 @@ from app.models.schemas import LanguageType
 
 
 def print_header(title):
-    """Print a formatted header"""
+
     print("\n" + "=" * 60)
     print(f"  {title}")
     print("=" * 60 + "\n")
 
 
 def test_dictionary_translation():
-    """Test dictionary-based translation"""
+
     print_header("Dictionary Translation Tests")
 
     service = TranslationService()
@@ -48,7 +43,7 @@ def test_dictionary_translation():
         result, time_taken = service.translate(text, src, tgt, use_neural=False)
         print(f"  {text:12} → {result:12} ({time_taken*1000:.2f}ms)")
 
-    # Reverse translation
+
     print("\nMin Nan → Chinese (Dictionary)\n")
 
     reverse_phrases = [
@@ -63,7 +58,7 @@ def test_dictionary_translation():
 
 
 def test_neural_translation():
-    """Test neural machine translation"""
+
     print_header("Neural Machine Translation Tests")
 
     service = TranslationService()
@@ -109,7 +104,7 @@ def test_neural_translation():
 
 
 def test_hybrid_translation():
-    """Test hybrid approach (neural + dictionary)"""
+
     print_header("Hybrid Translation (Neural + Dictionary Post-processing)")
 
     service = TranslationService()
@@ -140,7 +135,7 @@ def test_hybrid_translation():
 
 
 def show_dictionary():
-    """Show available dictionary entries"""
+
     print_header("Available Dictionary Entries")
 
     service = TranslationService()
@@ -148,7 +143,7 @@ def show_dictionary():
     print(f"Total entries: {len(service.chinese_to_minnan_dict)}\n")
     print("Sample entries (Chinese → Min Nan):\n")
 
-    # Show first 20 entries
+
     for i, (chinese, minnan) in enumerate(service.chinese_to_minnan_dict.items()):
         if i < 20:
             print(f"  {chinese:12} → {minnan}")
@@ -159,7 +154,7 @@ def show_dictionary():
 
 
 def interactive_mode():
-    """Interactive translation mode"""
+
     print_header("Interactive Translation Mode")
 
     service = TranslationService()
@@ -177,7 +172,7 @@ def interactive_mode():
             if not text:
                 continue
 
-            # Try dictionary first
+
             result_dict, time_dict = service.translate(
                 text,
                 LanguageType.CHINESE,
@@ -187,7 +182,7 @@ def interactive_mode():
 
             print(f"Min Nan (dictionary): {result_dict} ({time_dict*1000:.2f}ms)")
 
-            # If models loaded, try neural too
+
             if service.models_loaded:
                 result_neural, time_neural = service.translate(
                     text,
@@ -207,7 +202,7 @@ def interactive_mode():
 
 
 def main():
-    """Main function"""
+
     print("\n" + "=" * 60)
     print("  Min Nan & Chinese Translation Demo")
     print("=" * 60)

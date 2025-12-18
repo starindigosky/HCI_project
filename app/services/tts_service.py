@@ -16,7 +16,7 @@ from taibun import Converter
 logger = logging.getLogger(__name__)
 
 
-def preprocess_text(text: str) -> str:  # 避免回傳空字串
+def preprocess_text(text: str) -> str:
     clean_text = re.sub(r"[\.\。\.]{2,}", "。", text)
     if not any(c.isalnum() for c in clean_text):
         print("⚠️ 警告：輸入文字無有效發音內容")
@@ -31,13 +31,10 @@ class TTSService:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         logger.info(f"TTS Service initializing on device: {self.device}")
 
-        # Initialize models as None - lazy loading
         self.tokenizer = None
         self.model = None
         self.models_loaded = False
 
-        # Initialize Taibun converter for Hanzi to Min Nan Romanization
-        # System: Tailo (Tâi-uân Lô-má-jī), Dialect: South (default)
         try:
             self.converter = Converter(system="Tailo", dialect="south")
             logger.info("Taibun converter initialized successfully")
@@ -46,11 +43,10 @@ class TTSService:
             self.converter = None
 
     def load_models(self):
-        """Load TTS models (lazy loading)"""
+
         try:
             logger.info("Loading TTS models...")
 
-            # Load Facebook MMS-TTS model for Min Nan
             logger.info(f"Loading Min Nan TTS model: {settings.MIN_NAN_TTS_MODEL}")
             self.tokenizer = VitsTokenizer.from_pretrained(
                 settings.MIN_NAN_TTS_MODEL, cache_dir=settings.MODEL_CACHE_DIR
@@ -69,32 +65,20 @@ class TTSService:
             raise
 
     def _generate_filename(self, text: str) -> str:
-        """Generate a safe filename from text"""
-        # Remove invalid filename characters
+
         safe_text = re.sub(r'[\\/*?:"<>|]', "", text)
-        # Remove whitespace and whitespace-like characters
+
         safe_text = re.sub(r"\s+", "", safe_text)
 
-        # Take first 5 characters (or use 'audio' if empty)
         prefix = safe_text[:5] if safe_text else "audio"
 
-        # Add timestamp/UUID for uniqueness
         file_id = uuid.uuid4().hex[:8]
         return f"{prefix}_{file_id}.wav"
 
     def text_to_speech(
         self, text: str, output_filename: str = None
     ) -> Tuple[str, float]:
-        """
-        Convert text to speech using Facebook MMS-TTS
 
-        Args:
-            text: Text to convert to speech
-            output_filename: Optional custom output filename
-
-        Returns:
-            Tuple of (output_file_path, processing_time)
-        """
         start_time = time.time()
 
         if not text or not text.strip():
@@ -102,11 +86,10 @@ class TTSService:
 
         text = preprocess_text(text)
 
-        # Convert Hanzi to Romanization using Taibun
         if self.converter:
             try:
                 original_text = text
-                # Check if text contains Hanzi (simple check)
+
                 if any("\u4e00" <= char <= "\u9fff" for char in text):
                     text = self.converter.get(text)
                     logger.info(f"Romanized text: '{original_text}' -> '{text}'")
@@ -123,26 +106,20 @@ class TTSService:
 
             logger.info(f"Converting text to speech: {text[:50]}...")
 
-            # Tokenize input text
             inputs = self.tokenizer(text, return_tensors="pt")
             inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-            # Generate speech
             with torch.no_grad():
                 outputs = self.model(**inputs)
                 waveform = outputs.waveform[0].cpu().numpy()
 
-            # Generate output filename if not provided
-            # Generate output filename if not provided
             if output_filename is None:
                 output_filename = self._generate_filename(text)
 
             output_path = os.path.join(settings.OUTPUT_DIR, output_filename)
 
-            # Save audio file
-            # MMS-TTS typically outputs at 16kHz
             sample_rate = 16000
-            # Normalize waveform to int16 range
+
             waveform_int16 = np.int16(waveform * 32767)
             wavfile.write(output_path, sample_rate, waveform_int16)
 
@@ -167,29 +144,16 @@ class TTSService:
         output_filename: str = None,
         use_neural_translation: bool = True,
     ) -> Tuple[str, str, float]:
-        """
-        Translate text (if needed) and convert to speech
 
-        Args:
-            text: Input text
-            source_language: Source language of the text
-            target_language: Target language for speech output
-            output_filename: Optional custom output filename
-            use_neural_translation: Whether to use neural translation (default: True)
-
-        Returns:
-            Tuple of (translated_text, output_file_path, processing_time)
-        """
         start_time = time.time()
 
         if not text or not text.strip():
             raise ValueError("Input text for translation cannot be empty.")
 
         try:
-            # Import here to avoid circular dependency
+
             from .translation_service import translation_service
 
-            # Translate text if source and target languages differ
             if source_language != target_language:
                 logger.info(f"Translating from {source_language} to {target_language}")
                 translated_text, translation_time = translation_service.translate(
@@ -208,11 +172,9 @@ class TTSService:
             if not translated_text or not translated_text.strip():
                 raise ValueError("Translated text is empty, cannot synthesize speech.")
 
-            # Generate filename using ORIGINAL text if not provided
             if output_filename is None:
                 output_filename = self._generate_filename(text)
 
-            # Convert to speech (always Min Nan for this model)
             output_path, tts_time = self.text_to_speech(
                 translated_text, output_filename
             )

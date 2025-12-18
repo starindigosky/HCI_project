@@ -10,7 +10,7 @@ def test_tts_api_call():
     print("Testing TTS API with Hanzi input '好'...")
     url = f"{BASE_URL}/tts/synthesize"
     data = {
-        "text": "你好",  # Translated to "汝好", then should be converted effectively.
+        "text": "你好",
         "source_language": "chinese",
         "target_language": "min_nan",
     }
@@ -26,7 +26,7 @@ def test_tts_api_call():
                 res = json.loads(response.read().decode("utf-8"))
                 print("Response:", res)
 
-                # Check if audio url works
+
                 audio_url = res.get("audio_url")
                 if audio_url:
                     full_url = f"http://localhost:8000{audio_url}"

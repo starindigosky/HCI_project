@@ -1,7 +1,5 @@
-#!/usr/bin/env python3
-"""
-Simple test script for the API endpoints
-"""
+
+
 import requests
 import json
 
@@ -9,7 +7,7 @@ BASE_URL = "http://localhost:8000/api/v1"
 
 
 def test_health():
-    """Test health endpoint"""
+
     print("Testing health endpoint...")
     response = requests.get(f"{BASE_URL}/health")
     print(f"Status: {response.status_code}")
@@ -18,7 +16,7 @@ def test_health():
 
 
 def test_tts():
-    """Test text-to-speech endpoint"""
+
     print("Testing TTS endpoint...")
     data = {
         "text": "你好，這是一個測試",
@@ -36,11 +34,11 @@ def test_tts():
 
 
 def test_asr():
-    """Test ASR endpoint with a sample audio file"""
+
     print("Testing ASR endpoint...")
     print("Note: You need to provide a valid audio file path")
 
-    # Replace with actual audio file path
+
     audio_file_path = "path/to/your/audio.wav"
 
     try:
@@ -61,7 +59,7 @@ def test_asr():
 
 
 def test_load_models():
-    """Test model loading endpoint"""
+
     print("Testing model loading endpoint...")
     response = requests.post(f"{BASE_URL}/models/load")
     print(f"Status: {response.status_code}")
@@ -80,7 +78,7 @@ if __name__ == "__main__":
         test_health()
         test_load_models()
         test_tts()
-        # test_asr()  # Uncomment and provide audio file path to test
+
 
         print("\n✅ Tests completed!")
 

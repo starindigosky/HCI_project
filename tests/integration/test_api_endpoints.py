@@ -7,10 +7,10 @@ import json
 
 @pytest.mark.integration
 class TestHealthEndpoint:
-    """Integration tests for health endpoint"""
+
 
     def test_health_check(self, client):
-        """Test health check endpoint"""
+
         response = client.get("/api/v1/health")
 
         assert response.status_code == 200
@@ -21,7 +21,7 @@ class TestHealthEndpoint:
         assert data["status"] == "healthy"
 
     def test_root_endpoint(self, client):
-        """Test root endpoint"""
+
         response = client.get("/")
 
         assert response.status_code == 200
@@ -33,7 +33,7 @@ class TestHealthEndpoint:
 
 @pytest.mark.integration
 class TestASREndpoint:
-    """Integration tests for ASR endpoint"""
+
 
     @patch('app.api.routes.asr_service')
     def test_transcribe_audio_chinese(
@@ -42,11 +42,11 @@ class TestASREndpoint:
         client,
         chinese_sample_audio
     ):
-        """Test ASR endpoint with Chinese audio"""
-        # Mock the service
+
+
         mock_asr_service.transcribe.return_value = ("你好世界", None, 1.5)
 
-        # Read audio file
+
         with open(chinese_sample_audio, 'rb') as f:
             files = {'audio_file': ('chinese.wav', f, 'audio/wav')}
             data = {'language': 'chinese'}
@@ -72,7 +72,7 @@ class TestASREndpoint:
         client,
         minnan_sample_audio
     ):
-        """Test ASR endpoint with Min Nan audio"""
+
         mock_asr_service.transcribe.return_value = ("汝好", None, 1.5)
 
         with open(minnan_sample_audio, 'rb') as f:
@@ -91,8 +91,8 @@ class TestASREndpoint:
         assert result["language"] == "min_nan"
 
     def test_transcribe_audio_invalid_format(self, client):
-        """Test ASR with invalid audio format"""
-        # Create a fake text file
+
+
         files = {'audio_file': ('test.txt', BytesIO(b'not an audio file'), 'text/plain')}
         data = {'language': 'chinese'}
 
@@ -106,7 +106,7 @@ class TestASREndpoint:
         assert "Unsupported file format" in response.json()["detail"]
 
     def test_transcribe_audio_missing_file(self, client):
-        """Test ASR without audio file"""
+
         data = {'language': 'chinese'}
 
         response = client.post(
@@ -114,12 +114,12 @@ class TestASREndpoint:
             data=data
         )
 
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 422
 
 
 @pytest.mark.integration
 class TestTTSEndpoint:
-    """Integration tests for TTS endpoint"""
+
 
     @patch('app.api.routes.tts_service')
     def test_synthesize_speech(
@@ -129,7 +129,7 @@ class TestTTSEndpoint:
         sample_chinese_text,
         tmp_path
     ):
-        """Test TTS endpoint"""
+
         output_file = str(tmp_path / "output.wav")
         mock_tts_service.translate_and_speak.return_value = (
             sample_chinese_text,
@@ -161,7 +161,7 @@ class TestTTSEndpoint:
         client,
         tmp_path
     ):
-        """Test TTS with default language settings"""
+
         output_file = str(tmp_path / "output.wav")
         mock_tts_service.translate_and_speak.return_value = (
             "測試",
@@ -180,17 +180,17 @@ class TestTTSEndpoint:
         assert result["target_language"] == "min_nan"
 
     def test_synthesize_speech_empty_text(self, client):
-        """Test TTS with empty text"""
+
         response = client.post(
             "/api/v1/tts/synthesize",
             json={"text": ""}
         )
 
-        # Should get validation error
+
         assert response.status_code == 422
 
     def test_synthesize_speech_invalid_json(self, client):
-        """Test TTS with invalid JSON"""
+
         response = client.post(
             "/api/v1/tts/synthesize",
             data="not a json"
@@ -201,7 +201,7 @@ class TestTTSEndpoint:
 
 @pytest.mark.integration
 class TestVoiceConversionEndpoint:
-    """Integration tests for voice conversion endpoint"""
+
 
     @patch('app.api.routes.asr_service')
     @patch('app.api.routes.tts_service')
@@ -213,11 +213,11 @@ class TestVoiceConversionEndpoint:
         chinese_sample_audio,
         tmp_path
     ):
-        """Test voice-to-voice conversion"""
-        # Mock ASR
+
+
         mock_asr_service.transcribe.return_value = ("你好世界", None, 1.5)
 
-        # Mock TTS
+
         output_file = str(tmp_path / "converted.wav")
         mock_tts_service.translate_and_speak.return_value = (
             "你好世界",
@@ -257,7 +257,7 @@ class TestVoiceConversionEndpoint:
         chinese_sample_audio,
         tmp_path
     ):
-        """Test voice conversion with default languages"""
+
         mock_asr_service.transcribe.return_value = ("測試", None, 1.0)
 
         output_file = str(tmp_path / "output.wav")
@@ -281,7 +281,7 @@ class TestVoiceConversionEndpoint:
         assert result["target_language"] == "min_nan"
 
     def test_voice_conversion_invalid_format(self, client):
-        """Test voice conversion with invalid file format"""
+
         files = {'audio_file': ('test.pdf', BytesIO(b'fake pdf'), 'application/pdf')}
 
         response = client.post(
@@ -294,15 +294,15 @@ class TestVoiceConversionEndpoint:
 
 @pytest.mark.integration
 class TestAudioDownloadEndpoint:
-    """Integration tests for audio download endpoint"""
+
 
     def test_download_existing_audio(self, client, tmp_path, monkeypatch):
-        """Test downloading an existing audio file"""
-        # Create a fake audio file in outputs directory
+
+
         import os
         from app.config import settings
 
-        # Temporarily set output dir
+
         output_dir = tmp_path / "outputs"
         output_dir.mkdir()
         monkeypatch.setattr('app.config.settings.OUTPUT_DIR', str(output_dir))
@@ -316,7 +316,7 @@ class TestAudioDownloadEndpoint:
         assert response.headers["content-type"] == "audio/wav"
 
     def test_download_nonexistent_audio(self, client):
-        """Test downloading a non-existent audio file"""
+
         response = client.get("/api/v1/audio/nonexistent.wav")
 
         assert response.status_code == 404
@@ -325,7 +325,7 @@ class TestAudioDownloadEndpoint:
 
 @pytest.mark.integration
 class TestModelLoadingEndpoint:
-    """Integration tests for model loading endpoint"""
+
 
     @patch('app.api.routes.asr_service')
     @patch('app.api.routes.tts_service')
@@ -335,14 +335,14 @@ class TestModelLoadingEndpoint:
         mock_asr_service,
         client
     ):
-        """Test successful model loading"""
+
         mock_asr_service.models_loaded = False
         mock_tts_service.models_loaded = False
 
         mock_asr_service.load_models.return_value = None
         mock_tts_service.load_models.return_value = None
 
-        # After loading, set to True
+
         def load_asr():
             mock_asr_service.models_loaded = True
 
@@ -365,11 +365,11 @@ class TestModelLoadingEndpoint:
         mock_asr_service,
         client
     ):
-        """Test loading models when already loaded"""
+
         mock_asr_service.models_loaded = True
 
         response = client.post("/api/v1/models/load")
 
         assert response.status_code == 200
-        # Should not call load_models again
+
         mock_asr_service.load_models.assert_not_called()

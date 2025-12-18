@@ -1,4 +1,4 @@
-// ASR Variables
+
 let websocket = null;
 let mediaRecorder = null;
 let audioContext = null;
@@ -11,7 +11,7 @@ const transcriptionBox = document.getElementById('transcriptionBox');
 const languageSelect = document.getElementById('language');
 const interimResultsCheckbox = document.getElementById('interimResults');
 
-// TTS Variables
+
 const ttsBtn = document.getElementById('ttsBtn');
 const ttsText = document.getElementById('ttsText');
 const ttsSourceLang = document.getElementById('ttsSourceLang');
@@ -19,44 +19,44 @@ const ttsStatus = document.getElementById('ttsStatus');
 const ttsAudioPlayer = document.getElementById('ttsAudioPlayer');
 const historyList = document.getElementById('historyList');
 
-// Audio Queue Variables
+
 const audioQueue = [];
 let isPlaying = false;
-let isSystemSpeaking = false; // Flag to prevent ASR from hearing TTS
+let isSystemSpeaking = false;
 
 async function processQueue() {
     if (isPlaying || audioQueue.length === 0) return;
 
     isPlaying = true;
-    isSystemSpeaking = true; // Mute mic
+    isSystemSpeaking = true;
     updateStatus('🔊 Speaking...', 'speaking');
 
     const { player, container } = audioQueue.shift();
 
     try {
-        container.classList.add('playing'); // Visual indicator
+        container.classList.add('playing');
         await player.play();
 
         player.onended = () => {
             container.classList.remove('playing');
             isPlaying = false;
 
-            // Only unmute if queue is empty (no more speech coming immediately)
+
             if (audioQueue.length === 0) {
-                // Add a "Cooldown" period to let echo die down
+
                 updateStatus('⏳ Cooldown...', 'speaking');
                 setTimeout(() => {
-                    // Check queue again in case new audio arrived during cooldown
+
                     if (audioQueue.length === 0) {
                         isSystemSpeaking = false;
                         if (websocket && websocket.readyState === WebSocket.OPEN) {
                             updateStatus('🔴 Recording...', 'recording');
                         }
                     }
-                }, 2000); // 2.0 second safety buffer
+                }, 2000);
             }
 
-            processQueue(); // Process next item
+            processQueue();
         };
 
         player.onerror = (e) => {
@@ -69,18 +69,18 @@ async function processQueue() {
                     updateStatus('🔴 Recording...', 'recording');
                 }
             }
-            processQueue(); // Skip to next
+            processQueue();
         };
 
     } catch (error) {
         console.error("Audio playback failed:", error);
         container.classList.remove('playing');
         isPlaying = false;
-        processQueue(); // Skip to next
+        processQueue();
     }
 }
 
-// History Functions
+
 async function fetchHistory() {
     try {
         const response = await fetch('http://localhost:8000/api/v1/tts/history');
@@ -104,15 +104,15 @@ function renderHistory(files) {
         let displayFilename = file.filename;
         if (displayFilename.includes('_')) {
             const parts = displayFilename.split('_');
-            // If the last part looks like a UUID (hex) or similar ID, remove it
+
             if (parts.length > 1) {
-                // Heuristic: Join all parts except the last one
+
                 displayFilename = parts.slice(0, -1).join('_');
             }
         }
 
 
-        // Ensure URL is absolute pointing to backend
+
         let audioUrl = file.url;
         if (audioUrl.startsWith('/')) {
             audioUrl = `http://localhost:8000${audioUrl}`;
@@ -145,7 +145,7 @@ async function deleteAudio(filename) {
         });
 
         if (response.ok) {
-            fetchHistory(); // Refresh list
+            fetchHistory();
         } else {
             const data = await response.json();
             alert('Delete failed: ' + (data.detail || 'Unknown error'));
@@ -156,10 +156,10 @@ async function deleteAudio(filename) {
     }
 }
 
-// Load history on startup
+
 fetchHistory();
 
-// API URLs
+
 const ASR_WS_URL = 'ws://localhost:8000/api/v1/ws/asr';
 const TTS_API_URL = 'http://localhost:8000/api/v1/tts/synthesize';
 
@@ -181,7 +181,7 @@ async function getSynthesizedAudio(text) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 text: text,
-                source_language: languageSelect ? languageSelect.value : 'chinese', // Use the same language as ASR
+                source_language: languageSelect ? languageSelect.value : 'chinese',
                 target_language: 'min_nan'
             }),
         });
@@ -197,44 +197,44 @@ async function getSynthesizedAudio(text) {
     }
 }
 
-// Speaker Management
+
 let currentSpeaker = 'A';
 
 
 
 async function addTranscription(text, isFinal = true, details = {}, speakerOverride = null) {
-    // Remove empty state if present
+
     const emptyState = transcriptionBox.querySelector('.empty-state');
     if (emptyState) emptyState.remove();
 
-    // Determine target text and styling
-    const originalText = text; // Source (e.g. Mandarin)
-    const translatedText = details.translated_text || text; // Target (e.g. Min Nan) or same
+
+    const originalText = text;
+    const translatedText = details.translated_text || text;
     const confidence = details.confidence || 'low';
     const method = details.method || 'fallback';
 
-    // Determine the speaker to use
-    // Priority: speakerOverride > details.speaker > currentSpeaker
+
+
     const speaker = speakerOverride || details.speaker || currentSpeaker;
 
-    // UI Class for confidence coloring
+
     const confidenceClass = confidence === 'high' ? 'high-confidence' : 'low-confidence';
 
-    // Find or create transcription item
+
     let item;
     const existingInterim = transcriptionBox.querySelector('.transcription-item.interim');
 
     if (!isFinal) {
         if (existingInterim) {
             item = existingInterim;
-            // IMPORTANT: Do NOT change the speaker class if it exists.
-            // Verify speaker consistency (optional safety)
+
+
             if (!item.dataset.speaker) item.dataset.speaker = speaker;
         } else {
             item = document.createElement('div');
-            // Store speaker in dataset for persistence
+
             item.dataset.speaker = speaker;
-            // Add speaker class
+
             item.className = `transcription-item interim speaker-${speaker}`;
 
             const contentDiv = document.createElement('div');
@@ -248,16 +248,16 @@ async function addTranscription(text, isFinal = true, details = {}, speakerOverr
             transcriptionBox.appendChild(item);
         }
     } else {
-        // Finalize
+
         if (existingInterim) {
             item = existingInterim;
             item.classList.remove('interim');
-            // Use EXISTING speaker from dataset to prevent switching active item
+
             const lockedSpeaker = item.dataset.speaker || speaker;
             item.className = `transcription-item speaker-${lockedSpeaker}`;
         } else {
             item = document.createElement('div');
-            // Store speaker
+
             item.dataset.speaker = speaker;
             item.className = `transcription-item speaker-${speaker}`;
 
@@ -273,10 +273,10 @@ async function addTranscription(text, isFinal = true, details = {}, speakerOverr
         }
     }
 
-    // Retrieve speaker for rendering label
+
     const displaySpeaker = item.dataset.speaker || speaker;
 
-    // Render Dual Text Layout
+
     const contentDiv = item.querySelector('.transcription-content');
     contentDiv.innerHTML = `
         <div class="speaker-label" style="font-size: 0.75em; color: #888; margin-bottom: 2px;">
@@ -292,13 +292,13 @@ async function addTranscription(text, isFinal = true, details = {}, speakerOverr
     item.querySelector('.transcription-meta').textContent = `${isFinal ? 'Final' : 'Interim'} • ${method && method !== 'fallback' ? 'Dict Match' : 'Neural/Raw'} • ${new Date().toLocaleTimeString()}`;
 
 
-    // If it's a final transcription, fetch and embed the audio
+
     if (isFinal) {
-        // [New Feature] Auto-fill TTS text box with ASR result
+
         if (ttsText) {
-            // Append with newline if not empty
+
             ttsText.value += (ttsText.value ? '\n' : '') + originalText;
-            // Scroll to bottom of textarea
+
             ttsText.scrollTop = ttsText.scrollHeight;
         }
 
@@ -307,18 +307,18 @@ async function addTranscription(text, isFinal = true, details = {}, speakerOverr
         audioContainer.textContent = 'Synthesizing audio...';
         item.appendChild(audioContainer);
 
-        const audioUrl = await getSynthesizedAudio(translatedText); // Synthesize the TRANSLATED text
+        const audioUrl = await getSynthesizedAudio(translatedText);
         if (audioUrl) {
             const audioPlayer = document.createElement('audio');
             audioPlayer.src = audioUrl;
             audioPlayer.type = "audio/wav";
             audioPlayer.controls = true;
-            // audioPlayer.autoplay = true; // Disable direct autoplay, use queue
 
-            audioContainer.textContent = ''; // Clear "Synthesizing..." message
+
+            audioContainer.textContent = '';
             audioContainer.appendChild(audioPlayer);
 
-            // Add to queue
+
             audioQueue.push({ player: audioPlayer, container: item });
             processQueue();
         } else {
@@ -330,15 +330,15 @@ async function addTranscription(text, isFinal = true, details = {}, speakerOverr
 }
 
 async function startRecording() {
-    isSystemSpeaking = false; // Force mic enabled
+    isSystemSpeaking = false;
     try {
-        // Connect WebSocket
+
         websocket = new WebSocket(ASR_WS_URL);
 
         websocket.onopen = async () => {
             updateStatus('Connected', 'connected');
 
-            // Send configuration
+
             const language = languageSelect ? languageSelect.value : 'chinese';
             const interimResults = interimResultsCheckbox ? interimResultsCheckbox.checked : false;
 
@@ -348,23 +348,23 @@ async function startRecording() {
                 interim_results: interimResults
             }));
 
-            // Start audio capture
+
             audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
-            // Create audio context
+
             audioContext = new AudioContext({ sampleRate: 16000 });
             const source = audioContext.createMediaStreamSource(audioStream);
 
-            // Create script processor for audio chunks
+
             const processor = audioContext.createScriptProcessor(4096, 1, 1);
 
             processor.onaudioprocess = (e) => {
-                // If system is speaking, ignore microphone input (prevent feedback loop)
+
                 if (isSystemSpeaking) return;
 
                 if (websocket && websocket.readyState === WebSocket.OPEN) {
                     const audioData = e.inputBuffer.getChannelData(0);
-                    // Convert to Int16Array
+
                     const int16Data = new Int16Array(audioData.length);
                     for (let i = 0; i < audioData.length; i++) {
                         int16Data[i] = Math.max(-32768, Math.min(32767, audioData[i] * 32768));
@@ -387,23 +387,23 @@ async function startRecording() {
             if (message.type === 'transcription') {
                 let speakerForThisItem = null;
 
-                // Check if this result was forced by a speaker switch
+
                 if (message.cause === 'switch_speaker_forced') {
-                    // This result belongs to the PREVIOUS speaker
-                    // If current is A, previous was B. If current is B, previous was A.
+
+
                     speakerForThisItem = (currentSpeaker === 'A' ? 'B' : 'A');
                     console.log(`Received forced finalize result. Attributing to PREVIOUS speaker: ${speakerForThisItem}`);
                 }
 
                 if (message.translated_text) {
-                    // Hybrid result
+
                     addTranscription(message.text, message.is_final, {
                         translated_text: message.translated_text,
                         method: message.method,
                         confidence: message.confidence
                     }, speakerForThisItem);
                 } else {
-                    // Legacy/Interim simple result (shouldn't really happen with hybrid, but safe fallback)
+
                     addTranscription(message.text, message.is_final, {}, speakerForThisItem);
                 }
             } else if (message.type === 'error') {
@@ -441,45 +441,40 @@ async function startRecording() {
 
 function stopRecording(e) {
     if (e) e.preventDefault();
-    isSystemSpeaking = false; // Force mic enabled
+    isSystemSpeaking = false;
 
 
     try {
-        // Send stop message
+
         if (websocket && websocket.readyState === WebSocket.OPEN) {
             websocket.send(JSON.stringify({ type: 'stop' }));
         }
 
-        // Stop audio stream
+
         if (audioStream) {
             audioStream.getTracks().forEach(track => track.stop());
             audioStream = null;
         }
 
-        // Close audio context
+
         if (audioContext) {
             audioContext.close();
             audioContext = null;
         }
 
-        // Close WebSocket - Do NOT close immediately.
-        // Wait for server to send 'stopped' message to avoid race condition.
-        // If we close now, server might crash trying to send final partial result.
 
-        /* 
-        if (websocket) {
-            websocket.close();
-            websocket = null;
-        } 
-        */
 
-        // Clear Audio Queue - CHANGED: Don't clear queue on stop, let it finish speaking
-        // audioQueue.length = 0;
-        // isPlaying = false;
 
-        // Remove 'playing' class only from items that might have been manually stopped? 
-        // Actually, if we let it play, we don't remove class yet.
-        // document.querySelectorAll('.transcription-item.playing').forEach(el => el.classList.remove('playing'));
+
+
+
+
+
+
+
+
+
+
 
         startBtn.disabled = false;
         stopBtn.disabled = true;
@@ -490,18 +485,18 @@ function stopRecording(e) {
 }
 
 async function synthesizeSpeech(e) {
-    if (e) e.preventDefault(); // Prevent default form submission behavior
+    if (e) e.preventDefault();
     const text = ttsText.value.trim();
     if (!text) {
         alert('Please enter some text to synthesize.');
         return;
     }
 
-    // Check if disabled (using class for DIV)
+
     if (ttsBtn.classList.contains('disabled')) return false;
 
     ttsBtn.classList.add('disabled');
-    // Mute microphone to prevent ASR feedback loop (CRITICAL FIX)
+
     isSystemSpeaking = true;
 
     ttsAudioPlayer.style.display = 'none';
@@ -516,7 +511,7 @@ async function synthesizeSpeech(e) {
             body: JSON.stringify({
                 text: text,
                 source_language: ttsSourceLang ? ttsSourceLang.value : 'chinese',
-                target_language: 'min_nan' // TTS output is always Min Nan
+                target_language: 'min_nan'
             }),
         });
 
@@ -527,13 +522,13 @@ async function synthesizeSpeech(e) {
 
         const data = await response.json();
 
-        // Construct full audio URL
+
         const audioUrl = `http://localhost:8000${data.audio_url}`;
 
         ttsAudioPlayer.src = audioUrl;
         ttsAudioPlayer.style.display = 'block';
 
-        // Try to play automatically
+
         try {
             await ttsAudioPlayer.play();
             updateTtsStatus('Audio playing...', 'connected', true);
@@ -542,28 +537,28 @@ async function synthesizeSpeech(e) {
             updateTtsStatus('Audio ready. Click play to listen.', 'connected', true);
         }
 
-        // Refresh history
+
         fetchHistory();
     } catch (error) {
         console.error('TTS Error:', error);
         updateTtsStatus(`Error: ${error.message}`, 'disconnected', true);
     } finally {
         ttsBtn.classList.remove('disabled');
-        // Unmute microphone after a delay (to let audio finish if playing)
-        // But ttsAudioPlayer.play() is async, so we should hook into 'onended'
-        // For now, simpler to set false here, but play() is awaited above?
-        // await ttsAudioPlayer.play() waits for Promise, which resolves when playback STARTS, not ends.
-        // So we need to listen to onended.
+
+
+
+
+
 
         ttsAudioPlayer.onended = () => {
             isSystemSpeaking = false;
         };
-        // If play failed, or ended immediately
+
         if (ttsAudioPlayer.paused) {
             isSystemSpeaking = false;
         }
     }
-    return false; // Enhance prevention
+    return false;
 }
 
 startBtn.addEventListener('click', startRecording);
@@ -571,14 +566,14 @@ stopBtn.addEventListener('click', stopRecording);
 ttsBtn.addEventListener('click', synthesizeSpeech);
 
 
-// Clear transcriptions when language changes (if element exists)
+
 if (languageSelect) {
     languageSelect.addEventListener('change', () => {
         transcriptionBox.innerHTML = '<div class="empty-state">Language changed. Click "Start Recording" to begin...</div>';
     });
 }
 
-// Update configuration dynamically when checkbox changes
+
 if (interimResultsCheckbox) {
     interimResultsCheckbox.addEventListener('change', () => {
         if (websocket && websocket.readyState === WebSocket.OPEN) {

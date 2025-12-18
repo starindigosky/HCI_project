@@ -2,7 +2,7 @@ import torch
 from transformers import VitsModel, VitsTokenizer
 import os
 
-# Use cache dir from existing project to avoid re-downloading if possible
+
 CACHE_DIR = "./model_cache"
 MODEL_NAME = "facebook/mms-tts-nan"
 

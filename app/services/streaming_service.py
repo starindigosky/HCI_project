@@ -14,29 +14,15 @@ logger = logging.getLogger(__name__)
 
 
 class StreamingASRService:
-    """
-    Service for real-time streaming ASR (Automatic Speech Recognition)
-    Handles continuous audio stream from microphone
-    """
 
     def __init__(self, sample_rate: int = 16000, chunk_duration: float = 1.0):
-        """
-        Initialize streaming ASR service
 
-        Args:
-            sample_rate: Audio sample rate (default: 16000 Hz)
-            chunk_duration: Duration of each audio chunk in seconds (default: 1.0s)
-        """
         self.sample_rate = sample_rate
         self.chunk_duration = chunk_duration
         self.chunk_size = int(sample_rate * chunk_duration)
 
-        # Buffer for accumulating audio chunks
-        # Assuming chunk_duration might be small (e.g. 0.25s from frontend ScriptProcessor),
-        # 2000 chunks @ 0.25s = 500 seconds (~8 mins), ample for long speech.
         self.audio_buffer = deque(maxlen=2000)
 
-        # Minimum audio length for transcription (in seconds)
         self.min_audio_duration = 0.5
 
         logger.info(
@@ -44,27 +30,20 @@ class StreamingASRService:
             f"sample_rate={sample_rate}, chunk_duration={chunk_duration}s"
         )
 
-        # Silence counter to detect end of speech
         self.silence_counter = 0
-        # Track last final text to prevent duplicates
+
         self.last_final_text = ""
 
     def reset_buffer(self):
-        """Reset the audio buffer"""
+
         self.audio_buffer.clear()
         logger.debug("Audio buffer reset")
 
     def add_audio_chunk(self, audio_chunk: bytes):
-        """
-        Add audio chunk to buffer
 
-        Args:
-            audio_chunk: Raw audio bytes (PCM format)
-        """
-        # Convert bytes to numpy array (assuming int16 PCM)
         try:
             audio_array = np.frombuffer(audio_chunk, dtype=np.int16)
-            # Normalize to float32 [-1.0, 1.0]
+
             audio_array = audio_array.astype(np.float32) / 32768.0
             self.audio_buffer.append(audio_array)
             logger.debug(f"Added audio chunk: {len(audio_array)} samples")
@@ -73,76 +52,49 @@ class StreamingASRService:
             raise
 
     def get_buffered_audio(self) -> np.ndarray:
-        """
-        Get all buffered audio as a single numpy array
 
-        Returns:
-            Combined audio array
-        """
         if not self.audio_buffer:
             return np.array([], dtype=np.float32)
 
-        # Concatenate all chunks
         combined_audio = np.concatenate(list(self.audio_buffer))
         return combined_audio
 
     async def transcribe_stream(
         self, audio_chunk: bytes, language: LanguageType, interim_results: bool = False
     ) -> Tuple[Optional[str], bool]:
-        """
-        Transcribe streaming audio chunk
 
-        Args:
-            audio_chunk: Audio chunk bytes
-            language: Language type
-            interim_results: If True, return interim results (faster but less accurate)
-
-        Returns:
-            Tuple of (Transcribed text or None, is_final boolean)
-        """
-        # Add chunk to buffer
         self.add_audio_chunk(audio_chunk)
 
-        # Get buffered audio
         audio = self.get_buffered_audio()
 
-        # Check if we have enough audio
         duration = len(audio) / self.sample_rate
         if duration < self.min_audio_duration:
             logger.debug(f"Not enough audio yet: {duration:.2f}s")
             return None, False
 
-        # Calculate RMS amplitude to detect silence
         rms = np.sqrt(np.mean(audio**2))
-        SILENCE_THRESHOLD = 0.002  # Lowered threshold for quiet mics
-
-        # Log RMS for debugging (optional)
-        # logger.debug(f"Audio RMS: {rms:.4f}")
+        SILENCE_THRESHOLD = 0.002
 
         is_final = False
 
         if rms < SILENCE_THRESHOLD:
             self.silence_counter += 1
-            if (
-                self.silence_counter >= 6
-            ):  # Increased to 6 chunks (approx 1.5s) to prevent premature cutoff
+            if self.silence_counter >= 6:
                 if len(self.audio_buffer) > 0:
                     logger.info(
                         f"Silence detected (RMS < {SILENCE_THRESHOLD}), finalizing transcription"
                     )
                     is_final = True
-                    # We will transcribe one last time below, then reset
-                    # Note: We reset AFTER transcription
+
                 else:
                     self.silence_counter = 0
                     return None, False
             else:
-                # Short silence, just skip transcription to save resources,
-                # but keep interim result on screen
+
                 return None, False
         else:
             self.silence_counter = 0
-            # If we detect sound, we can allow new final text later
+
             self.last_final_text = ""
 
         import tempfile
@@ -151,13 +103,12 @@ class StreamingASRService:
 
         tmp_path = None
         try:
-            # Save to temporary file for transcription
+
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
                 tmp_path = tmp_file.name
-                # Run file I/O in thread pool to avoid blocking
+
                 await run_in_thread(sf.write, tmp_path, audio, self.sample_rate)
 
-            # Transcribe using existing ASR service (run in thread pool)
             text, confidence, processing_time = await run_in_thread(
                 asr_service.transcribe, tmp_path, language
             )
@@ -169,7 +120,7 @@ class StreamingASRService:
             )
 
             if is_final:
-                # Prevent sending duplicate final results
+
                 if text == self.last_final_text:
                     logger.info(
                         f"Duplicate final result detected ('{text}'), suppressing"
@@ -188,7 +139,7 @@ class StreamingASRService:
             logger.error(f"Error in streaming transcription: {str(e)}")
             raise
         finally:
-            # Ensure temp file is always cleaned up
+
             if tmp_path and os.path.exists(tmp_path):
                 try:
                     os.remove(tmp_path)
@@ -198,15 +149,7 @@ class StreamingASRService:
                     )
 
     async def transcribe_final(self, language: LanguageType) -> Optional[str]:
-        """
-        Transcribe all buffered audio (final result)
 
-        Args:
-            language: Language type
-
-        Returns:
-            Final transcribed text
-        """
         audio = self.get_buffered_audio()
 
         if len(audio) == 0:
@@ -220,10 +163,9 @@ class StreamingASRService:
         try:
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp_file:
                 tmp_path = tmp_file.name
-                # Run file I/O in thread pool to avoid blocking
+
                 await run_in_thread(sf.write, tmp_path, audio, self.sample_rate)
 
-            # Transcribe using existing ASR service (run in thread pool)
             text, confidence, processing_time = await run_in_thread(
                 asr_service.transcribe, tmp_path, language
             )
@@ -236,7 +178,7 @@ class StreamingASRService:
             logger.error(f"Error in final transcription: {str(e)}")
             raise
         finally:
-            # Ensure temp file is always cleaned up
+
             if tmp_path and os.path.exists(tmp_path):
                 try:
                     os.remove(tmp_path)
@@ -247,34 +189,31 @@ class StreamingASRService:
 
 
 class StreamingSessionManager:
-    """Manage multiple streaming sessions"""
 
     def __init__(self):
         self.sessions = {}
         logger.info("Streaming Session Manager initialized")
 
     def create_session(self, session_id: str) -> StreamingASRService:
-        """Create a new streaming session"""
+
         session = StreamingASRService()
         self.sessions[session_id] = session
         logger.info(f"Created streaming session: {session_id}")
         return session
 
     def get_session(self, session_id: str) -> Optional[StreamingASRService]:
-        """Get existing session"""
+
         return self.sessions.get(session_id)
 
     def remove_session(self, session_id: str):
-        """Remove session"""
+
         if session_id in self.sessions:
             del self.sessions[session_id]
             logger.info(f"Removed streaming session: {session_id}")
 
     def cleanup_inactive_sessions(self, max_age_seconds: int = 3600):
-        """Cleanup inactive sessions older than max_age_seconds"""
-        # TODO: Implement timestamp tracking and cleanup
+
         pass
 
 
-# Global streaming session manager
 streaming_session_manager = StreamingSessionManager()

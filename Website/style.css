@@ -1,4 +1,4 @@
-/* Antigravity Theme - CSS Variables */
+
 :root {
     --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     --bg-gradient: linear-gradient(45deg, #1a1a2e, #16213e, #0f3460, #533483);
@@ -11,7 +11,7 @@
     --success-color: #00b894;
     --panel-radius: 20px;
     --btn-radius: 50px;
-    /* Pill shape */
+
 }
 
 * {
@@ -22,7 +22,7 @@
 
 body {
     font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
-    /* Deep Space Gradient + Stars */
+
     background-color: #0f3460;
     background-image:
         radial-gradient(white, rgba(255, 255, 255, .2) 2px, transparent 3px),
@@ -33,9 +33,9 @@ body {
     background-position: 0 0, 40px 60px, 130px 270px, 0% 50%;
 
     animation: gradientBG 60s ease infinite;
-    /* Slower gradient shift */
+
     will-change: background-position;
-    /* Optimization */
+
     color: var(--text-primary);
     min-height: 100vh;
     padding: 20px;
@@ -44,8 +44,8 @@ body {
     align-items: center;
 }
 
-/* Snowfall Animation */
-/* Removed snowfall animation as it's replaced by gradientBG */
+
+
 
 @keyframes gradientBG {
     0% {
@@ -61,7 +61,7 @@ body {
     }
 }
 
-/* Floating Animation */
+
 @keyframes float {
     0% {
         transform: translateY(0px);
@@ -83,10 +83,10 @@ body {
     margin: 0 auto;
     gap: 30px;
     align-items: stretch;
-    /* Match height */
+
 }
 
-/* Sidebar (History) Styling */
+
 .sidebar {
     background: var(--glass-bg);
     backdrop-filter: blur(12px);
@@ -111,26 +111,26 @@ body {
     padding-bottom: 10px;
 }
 
-/* Main Container (ASR & TTS) */
+
 .container {
     background: transparent;
-    /* Remove container bg to show stars */
+
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     border: none;
     box-shadow: none;
     padding: 20px 0;
-    /* Reduced padding */
+
     width: 100%;
     display: flex;
     gap: 10px;
-    /* Gap handled by divider margins */
+
     flex-wrap: wrap;
     align-items: stretch;
     justify-content: center;
 }
 
-/* Panels (Left/Right) */
+
 .panel {
     flex: 1;
     min-width: 350px;
@@ -138,17 +138,17 @@ body {
     flex-direction: column;
     position: relative;
     background: rgba(16, 24, 50, 0.6);
-    /* Deep space blue glass */
+
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border: 1px solid rgba(100, 210, 255, 0.3);
-    /* Cyan neon border */
+
     border-radius: var(--panel-radius);
     padding: 30px;
     box-shadow:
         0 10px 40px rgba(0, 0, 0, 0.6),
         inset 0 0 30px rgba(100, 210, 255, 0.05);
-    /* Inner glow */
+
     transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
@@ -156,29 +156,29 @@ body {
     box-shadow:
         0 15px 50px rgba(0, 0, 0, 0.7),
         0 0 20px rgba(100, 210, 255, 0.2),
-        /* Outer glow on hover */
+
         inset 0 0 30px rgba(100, 210, 255, 0.1);
 }
 
-/* Independent Vertical Divider */
+
 .vertical-divider {
     display: none;
-    /* Hidden on mobile */
+
     width: 0;
     border-left: 4px dashed rgba(100, 210, 255, 0.4);
     margin: 20px 30px;
     box-shadow: 0 0 15px rgba(100, 210, 255, 0.3);
-    /* Glowing line */
+
     position: relative;
 }
 
-/* Add a glowing orb in middle of divider? Optional */
+
 .vertical-divider::after {
     content: '';
     position: absolute;
     top: 50%;
     left: -6px;
-    /* Center on 4px line */
+
     width: 8px;
     height: 8px;
     background: #fff;
@@ -192,7 +192,7 @@ body {
     }
 }
 
-/* Separator Line - Removed old border logic */
+
 @media (min-width: 900px) {
     .panel.tts-panel {
         border-left: none;
@@ -200,7 +200,7 @@ body {
     }
 }
 
-/* Typography */
+
 h1 {
     font-size: 2rem;
     font-weight: 700;
@@ -215,10 +215,10 @@ h1 {
     line-height: 1.5;
 }
 
-/* Form Elements */
+
 .config-section {
     background: rgba(0, 0, 0, 0.2);
-    /* Darker glass for input areas */
+
     padding: 20px;
     border-radius: 15px;
     margin-bottom: 20px;
@@ -261,7 +261,7 @@ textarea {
     min-height: 100px;
 }
 
-/* Custom Checkbox */
+
 .checkbox-group {
     display: flex;
     align-items: center;
@@ -275,7 +275,7 @@ textarea {
     accent-color: var(--accent-color);
 }
 
-/* Buttons */
+
 .controls {
     display: flex;
     gap: 15px;
@@ -292,7 +292,7 @@ button,
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    /* Bouncy */
+
     text-transform: uppercase;
     letter-spacing: 1px;
     overflow: hidden;
@@ -348,7 +348,7 @@ button::after,
     box-shadow: 0 8px 25px rgba(33, 147, 176, 0.4);
 }
 
-/* Status Indicators */
+
 .status {
     padding: 15px;
     border-radius: 10px;
@@ -394,7 +394,7 @@ button::after,
     }
 }
 
-/* Transcription Box */
+
 .transcription-box {
     background: rgba(0, 0, 0, 0.2);
     border: 1px solid var(--glass-border);
@@ -407,7 +407,7 @@ button::after,
     scrollbar-color: var(--accent-color) rgba(0, 0, 0, 0.1);
 }
 
-/* Scrollbar Styling */
+
 .transcription-box::-webkit-scrollbar {
     width: 6px;
 }
@@ -421,7 +421,7 @@ button::after,
     border-radius: 3px;
 }
 
-/* Speaker Controls */
+
 .speaker-controls {
     display: flex;
     align-items: center;
@@ -459,7 +459,7 @@ button::after,
     box-shadow: 0 4px 15px rgba(0, 242, 255, 0.3);
 }
 
-/* Chat Layout - Transcription Items */
+
 .transcription-item {
     background: rgba(255, 255, 255, 0.03);
     border-radius: 12px;
@@ -468,40 +468,40 @@ button::after,
     border: 1px solid rgba(255, 255, 255, 0.05);
     transition: all 0.3s ease;
     max-width: 85%;
-    /* Chat bubble width */
+
     position: relative;
     clear: both;
-    /* Ensure stacking */
+
 }
 
-/* Speaker A (Left) */
+
 .transcription-item.speaker-A {
     float: left;
     border-top-left-radius: 4px;
-    /* Chat bubble corner */
+
     background: rgba(0, 242, 255, 0.05);
-    /* Slight cyan tint */
+
     border-left: 3px solid #00f2ff;
 }
 
-/* Speaker B (Right) */
+
 .transcription-item.speaker-B {
     float: right;
     border-top-right-radius: 4px;
-    /* Chat bubble corner */
+
     background: rgba(0, 255, 136, 0.05);
-    /* Slight green tint */
+
     border-right: 3px solid #00ff88;
     text-align: right;
-    /* Align text content to right */
+
 }
 
-/* Reset text align for internal divs if needed, or keep it for style */
+
 .transcription-item.speaker-B .transcription-content {
-    /* text-align: left; Optional: keep text left aligned inside bubble */
+
 }
 
-/* Ensure container handles floated children */
+
 .transcription-box::after {
     content: "";
     display: table;
@@ -539,7 +539,7 @@ button::after,
     color: #ffadad;
 }
 
-/* History List */
+
 .history-item {
     background: rgba(255, 255, 255, 0.05);
     border-radius: 8px;
@@ -550,7 +550,7 @@ button::after,
     border: 1px solid transparent;
     transition: all 0.2s;
     position: relative;
-    /* Anchor for delete button */
+
 }
 
 .history-item:hover {
@@ -578,7 +578,7 @@ button::after,
     justify-content: space-between;
     margin-bottom: 5px;
     padding-right: 30px;
-    /* Space for delete button */
+
 }
 
 .delete-btn {
@@ -608,11 +608,11 @@ audio {
     height: 30px;
     opacity: 0.8;
     filter: invert(1);
-    /* Invert to match dark theme better */
+
     border-radius: 15px;
 }
 
-/* Solar System Background */
+
 .solar-system {
     position: fixed;
     top: 0;
@@ -633,13 +633,13 @@ audio {
     position: absolute;
     border-radius: 50%;
     opacity: 0.8;
-    /* Much more visible */
+
     box-shadow: inset -12px -12px 20px rgba(0, 0, 0, 0.7), 0 0 10px rgba(0, 0, 0, 0.3);
-    /* Strong 3D sphere effect, low glow */
+
     animation: float 30s ease-in-out infinite alternate;
 }
 
-/* Mercury - Gray/Brown Cratered */
+
 .planet.mercury {
     width: 40px;
     height: 40px;
@@ -649,7 +649,7 @@ audio {
     animation-delay: 0s;
 }
 
-/* Venus - Yellow/Orange Cloudy */
+
 .planet.venus {
     width: 60px;
     height: 60px;
@@ -659,12 +659,12 @@ audio {
     animation-delay: -5s;
 }
 
-/* Earth - Blue/Green */
+
 .planet.earth {
     width: 70px;
     height: 70px;
     background: radial-gradient(circle at 30% 30%, #3498db, #2980b9);
-    /* Simple continents via shadow or extra gradient not easy in one line, sticking to blue marble look */
+
     background-image: radial-gradient(circle at 50% 50%, rgba(46, 204, 113, 0.6) 20%, transparent 25%),
         radial-gradient(circle at 20% 40%, rgba(46, 204, 113, 0.6) 15%, transparent 20%);
     top: 10%;
@@ -673,7 +673,7 @@ audio {
     opacity: 0.9;
 }
 
-/* Mars - Red */
+
 .planet.mars {
     width: 50px;
     height: 50px;
@@ -683,7 +683,7 @@ audio {
     animation-delay: -8s;
 }
 
-/* Jupiter - Striped Giant */
+
 .planet.jupiter {
     width: 160px;
     height: 160px;
@@ -693,7 +693,7 @@ audio {
     top: 5%;
     right: 5%;
     opacity: 0.6;
-    /* Back layer */
+
     animation-delay: -10s;
     box-shadow: inset -20px -20px 40px rgba(0, 0, 0, 0.6);
     transform: rotate(-30deg);
@@ -708,7 +708,7 @@ button:disabled,
     filter: grayscale(0.5);
 }
 
-/* Saturn - Ringed */
+
 .planet.saturn {
     width: 100px;
     height: 100px;
@@ -732,7 +732,7 @@ button:disabled,
     box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
 }
 
-/* Uranus - Pale Cyan */
+
 .planet.uranus {
     width: 70px;
     height: 70px;
@@ -743,7 +743,7 @@ button:disabled,
     animation-delay: -12s;
 }
 
-/* Neptune - Deep Blue */
+
 .planet.neptune {
     width: 65px;
     height: 65px;

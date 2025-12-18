@@ -25,7 +25,7 @@ router = APIRouter()
 
 
 def cleanup_file(file_path: str):
-    """Background task to cleanup uploaded/generated files"""
+
     try:
         if os.path.exists(file_path):
             os.remove(file_path)
@@ -36,18 +36,14 @@ def cleanup_file(file_path: str):
 
 @router.get("/health", response_model=HealthResponse)
 async def health_check():
-    """
-    Health check endpoint
 
-    Returns API status and model loading status
-    """
     return HealthResponse(
         status="healthy",
         version=settings.VERSION,
         models_loaded=(
             asr_service.models_loaded
             and tts_service.models_loaded
-            # Translation service can work without neural models (dictionary fallback)
+
         ),
     )
 
@@ -60,16 +56,9 @@ async def transcribe_audio(
         ..., description="Language of the audio (chinese or min_nan)"
     ),
 ):
-    """
-    Transcribe audio to text (ASR - Automatic Speech Recognition)
 
-    - **audio_file**: Audio file in supported formats (wav, mp3, m4a, ogg, flac)
-    - **language**: Language of the audio (chinese, min_nan, or zh_tw)
-
-    Returns transcribed text with metadata
-    """
     try:
-        # Validate file extension
+
         file_ext = os.path.splitext(audio_file.filename)[1].lower()
         if file_ext not in settings.ALLOWED_AUDIO_FORMATS:
             raise HTTPException(
@@ -77,7 +66,7 @@ async def transcribe_audio(
                 detail=f"Unsupported file format. Allowed formats: {settings.ALLOWED_AUDIO_FORMATS}",
             )
 
-        # Save uploaded file
+
         file_id = uuid.uuid4().hex
         file_path = os.path.join(settings.UPLOAD_DIR, f"{file_id}{file_ext}")
 
@@ -87,10 +76,10 @@ async def transcribe_audio(
 
         logger.info(f"Saved uploaded file to: {file_path}")
 
-        # Transcribe audio
+
         text, confidence, processing_time = asr_service.transcribe(file_path, language)
 
-        # Schedule cleanup of uploaded file
+
         background_tasks.add_task(cleanup_file, file_path)
 
         return ASRResponse(
@@ -102,7 +91,7 @@ async def transcribe_audio(
 
     except Exception as e:
         logger.error(f"Error in transcribe_audio: {str(e)}")
-        # Cleanup on error
+
         if os.path.exists(file_path):
             os.remove(file_path)
         raise HTTPException(status_code=500, detail=str(e))
@@ -110,19 +99,11 @@ async def transcribe_audio(
 
 @router.post("/tts/synthesize", response_model=TTSResponse)
 async def synthesize_speech(request: TTSRequest, background_tasks: BackgroundTasks):
-    """
-    Convert text to speech (TTS - Text-to-Speech)
 
-    - **text**: Text to convert to speech
-    - **source_language**: Source language of the text (default: chinese)
-    - **target_language**: Target language for speech output (default: min_nan)
-
-    Returns URL to download the generated audio file
-    """
     try:
         logger.info(f"TTS request: {request.text[:50]}...")
 
-        # Translate and convert to speech
+
         translated_text, output_path, processing_time = tts_service.translate_and_speak(
             text=request.text,
             source_language=request.source_language,
@@ -130,7 +111,7 @@ async def synthesize_speech(request: TTSRequest, background_tasks: BackgroundTas
         )
 
         if output_path:
-            # Generate URL for audio file
+
             filename = os.path.basename(output_path)
             audio_url = f"/api/v1/audio/{filename}"
 
@@ -142,7 +123,7 @@ async def synthesize_speech(request: TTSRequest, background_tasks: BackgroundTas
                 processing_time=processing_time,
             )
         else:
-            # Handle empty/invalid TTS result
+
             raise HTTPException(
                 status_code=400,
                 detail="Could not generate audio (text might be empty or invalid)",
@@ -164,22 +145,9 @@ async def voice_to_voice_conversion(
         default=LanguageType.MIN_NAN, description="Target language for output audio"
     ),
 ):
-    """
-    Convert voice from one language to another (Voice-to-Voice)
 
-    This endpoint:
-    1. Transcribes the input audio to text (ASR)
-    2. Translates the text if needed
-    3. Converts the translated text to speech in target language (TTS)
-
-    - **audio_file**: Audio file in supported formats
-    - **source_language**: Language of the input audio (default: chinese)
-    - **target_language**: Language for output audio (default: min_nan)
-
-    Returns transcribed text and URL to download the converted audio
-    """
     try:
-        # Validate file extension
+
         file_ext = os.path.splitext(audio_file.filename)[1].lower()
         if file_ext not in settings.ALLOWED_AUDIO_FORMATS:
             raise HTTPException(
@@ -187,7 +155,7 @@ async def voice_to_voice_conversion(
                 detail=f"Unsupported file format. Allowed formats: {settings.ALLOWED_AUDIO_FORMATS}",
             )
 
-        # Save uploaded file
+
         file_id = uuid.uuid4().hex
         input_path = os.path.join(settings.UPLOAD_DIR, f"{file_id}{file_ext}")
 
@@ -199,25 +167,25 @@ async def voice_to_voice_conversion(
             f"Processing voice conversion: {source_language} -> {target_language}"
         )
 
-        # Step 1: Transcribe input audio
+
         transcribed_text, _, asr_time = asr_service.transcribe(
             input_path, source_language
         )
 
-        # Step 2: Translate and convert to speech
+
         translated_text, output_path, tts_time = tts_service.translate_and_speak(
             text=transcribed_text,
             source_language=source_language,
             target_language=target_language,
         )
 
-        # Generate URL for output audio
+
         filename = os.path.basename(output_path)
         audio_url = f"/api/v1/audio/{filename}"
 
         total_time = asr_time + tts_time
 
-        # Schedule cleanup of uploaded file
+
         background_tasks.add_task(cleanup_file, input_path)
 
         return VoiceConversionResponse(
@@ -230,7 +198,7 @@ async def voice_to_voice_conversion(
 
     except Exception as e:
         logger.error(f"Error in voice_to_voice_conversion: {str(e)}")
-        # Cleanup on error
+
         if os.path.exists(input_path):
             os.remove(input_path)
         raise HTTPException(status_code=500, detail=str(e))
@@ -238,11 +206,7 @@ async def voice_to_voice_conversion(
 
 @router.get("/audio/{filename}")
 async def get_audio_file(filename: str):
-    """
-    Download generated audio file
 
-    - **filename**: Name of the audio file to download
-    """
     file_path = os.path.join(settings.OUTPUT_DIR, filename)
 
     if not os.path.exists(file_path):
@@ -253,11 +217,9 @@ async def get_audio_file(filename: str):
 
 @router.delete("/audio/{filename}")
 async def delete_audio_file(filename: str):
-    """
-    Delete an audio file
-    """
+
     try:
-        # Validate filename to prevent directory traversal
+
         if ".." in filename or "/" in filename:
             raise HTTPException(status_code=400, detail="Invalid filename")
 
@@ -280,9 +242,7 @@ async def delete_audio_file(filename: str):
 
 @router.get("/tts/history")
 async def get_audio_history():
-    """
-    Get list of generated audio files
-    """
+
     try:
         files = []
         if os.path.exists(settings.OUTPUT_DIR):
@@ -302,9 +262,9 @@ async def get_audio_history():
                         }
                     )
 
-        # Sort by creation time (newest first)
+
         files.sort(key=lambda x: x["created_at"], reverse=True)
-        return files[:7]  # Return only the latest 7 records
+        return files[:7]
     except Exception as e:
         logger.error(f"Error listing audio history: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -312,11 +272,7 @@ async def get_audio_history():
 
 @router.post("/models/load")
 async def load_models():
-    """
-    Manually trigger loading of AI models
 
-    This can be useful for preloading models on server startup
-    """
     try:
         if not asr_service.models_loaded:
             asr_service.load_models()
